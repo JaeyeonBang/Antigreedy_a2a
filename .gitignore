@@ -68,3 +68,5 @@ data/tmp/
 .claude/settings.local.json
 .gstack/
 .graphify-output/
+runs/
+.spike_watch/
