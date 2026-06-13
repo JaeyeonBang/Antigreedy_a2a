@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Antigreedy — A/B Theater</title>
+<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --ink:#e6edf3; --mut:#7d8896;
+          --bad:#f85149; --ok:#3fb950; --warn:#d29922; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 20px; border-bottom:1px solid #21262d; display:flex; align-items:center; gap:16px; }
+  header h1 { font-size:16px; margin:0; }
+  #run { margin-left:auto; background:#238636; color:#fff; border:0; padding:8px 16px;
+         border-radius:6px; cursor:pointer; font-weight:600; }
+  #run:disabled { opacity:.5; cursor:default; }
+  .wrap { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:#21262d; }
+  .panel { background:var(--panel); padding:14px; min-height:60vh; }
+  .panel h2 { margin:0 0 8px; font-size:14px; letter-spacing:.04em; text-transform:uppercase; }
+  .panel.baseline h2 { color:var(--bad); }
+  .panel.governed h2 { color:var(--ok); }
+  .graph { height:300px; background:#0d1117; border-radius:8px; border:1px solid #21262d; }
+  .gauge { height:10px; background:#0d1117; border-radius:6px; margin:10px 0 4px; overflow:hidden; }
+  .gauge > span { display:block; height:100%; background:var(--ok); transition:width .2s,background .2s; }
+  .meta { display:flex; justify-content:space-between; color:var(--mut); font-size:12px; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600; }
+  .feed { margin-top:10px; max-height:160px; overflow:auto; font:12px/1.45 ui-monospace,monospace; }
+  .feed div { padding:2px 0; border-bottom:1px solid #1b2129; }
+  .v-allow{color:var(--ok);} .v-modify{color:var(--warn);} .v-deny{color:var(--bad);} .v-delay{color:#a371f7;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Antigreedy — Airtime-Commons A/B Theater</h1>
+  <span style="color:var(--mut)">baseline (ungoverned) vs governed — same agents, same seed, only the policy set differs</span>
+  <button id="run">▶ Run</button>
+</header>
+<div class="wrap">
+  <section class="panel baseline" id="p-baseline">
+    <h2>Baseline · ungoverned</h2>
+    <div class="graph" id="g-baseline"></div>
+    <div class="gauge"><span id="bar-baseline" style="width:100%"></span></div>
+    <div class="meta"><span id="commons-baseline">commons: —</span><span class="badge" id="out-baseline">idle</span></div>
+    <div class="feed" id="feed-baseline"></div>
+  </section>
+  <section class="panel governed" id="p-governed">
+    <h2>Governed</h2>
+    <div class="graph" id="g-governed"></div>
+    <div class="gauge"><span id="bar-governed" style="width:100%"></span></div>
+    <div class="meta"><span id="commons-governed">commons: —</span><span class="badge" id="out-governed">idle</span></div>
+    <div class="feed" id="feed-governed"></div>
+  </section>
+</div>
+<script>
+const NODE_STYLE = [
+  { selector:'node', style:{ 'label':'data(id)','color':'#fff','text-valign':'center',
+      'font-size':11,'width':'data(sz)','height':'data(sz)','background-color':'data(col)' } },
+  { selector:'edge', style:{ 'width':1,'line-color':'#30363d','opacity':.4 } },
+];
+function mkGraph(id, agents){
+  const cy = cytoscape({ container:document.getElementById(id), style:NODE_STYLE,
+    layout:{name:'circle'}, userZoomingEnabled:false, userPanningEnabled:false });
+  agents.forEach(a => cy.add({ data:{ id:a, sz:24, col:'#1f6feb' } }));
+  for (let i=0;i<agents.length;i++) for (let j=i+1;j<agents.length;j++)
+    cy.add({ data:{ id:agents[i]+agents[j], source:agents[i], target:agents[j] } });
+  cy.layout({name:'circle'}).run();
+  return cy;
+}
+const COL = { allow:'#3fb950', modify:'#d29922', deny:'#f85149', delay:'#a371f7' };
+const S = {};  // condition -> {cy, budget, delivered:{}}
+function reset(cond){ S[cond] = { cy:null, budget:1, delivered:{} };
+  document.getElementById('feed-'+cond).innerHTML='';
+  document.getElementById('out-'+cond).textContent='running';
+  document.getElementById('out-'+cond).style.background='#30363d'; }
+
+function handle(ev){
+  const cond = ev.condition; if(!cond) return;
+  const st = S[cond] || (S[cond] = { cy:null, budget:1, delivered:{} });
+  const d = ev.data || {};
+  if (ev.type==='episode_start'){
+    st.budget = d.budget; st.delivered = {};
+    d.agents.forEach(a=> st.delivered[a]=0);
+    st.cy = mkGraph('g-'+cond, d.agents);
+  } else if (ev.type==='turn'){
+    const a=d.agent_id; st.delivered[a]=(st.delivered[a]||0)+(d.delivered_tokens||0);
+    if (st.cy){ const n=st.cy.$('#'+a);
+      n.data('sz', 24 + Math.sqrt(st.delivered[a])*6);
+      n.data('col', COL[d.verdict] || '#1f6feb'); }
+    const left = d.commons_left ?? st.budget;
+    const pct = Math.max(0, Math.min(100, 100*left/st.budget));
+    const bar=document.getElementById('bar-'+cond);
+    bar.style.width=pct+'%'; bar.style.background = pct<25?'#f85149':pct<60?'#d29922':'#3fb950';
+    document.getElementById('commons-'+cond).textContent='commons: '+left+' / '+st.budget;
+    const f=document.getElementById('feed-'+cond);
+    const row=document.createElement('div');
+    row.innerHTML=`r${d.round} <b>${a}</b> <span class="v-${d.verdict}">${d.verdict}</span> `+
+      `att ${d.attempted_tokens}→del ${d.delivered_tokens}`+(d.flags&&d.flags.airtime_greedy?' 🚩':'');
+    f.prepend(row);
+  } else if (ev.type==='decision' || ev.type==='episode_end'){
+    const o=document.getElementById('out-'+cond);
+    const outcome = d.outcome || 'decided'; o.textContent=outcome;
+    o.style.background = (outcome==='survived'||outcome==='decided')?'#238636':'#8e1519';
+  }
+}
+document.getElementById('run').onclick=()=>{
+  const btn=document.getElementById('run'); btn.disabled=true; btn.textContent='running…';
+  ['baseline','governed'].forEach(reset);
+  const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
+  ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
+    if(ev.type==='done'){ ws.close(); btn.disabled=false; btn.textContent='▶ Run again'; return; }
+    handle(ev); };
+  ws.onerror=()=>{ btn.disabled=false; btn.textContent='▶ Run (retry)'; };
+};
+</script>
+</body>
+</html>
