@@ -101,3 +101,41 @@ def test_envelope_on_all_events(tmp_path):
         assert {"run_id", "condition", "episode", "seq", "schema_version"} <= set(ev)
     turn_evs = [e for e in events if e["type"] == "turn"]
     assert all("policy_set_hash" in e for e in turn_evs)
+
+
+def test_delay_delivers_next_round_and_charges_then(tmp_path):
+    d = tmp_path / "pol"; d.mkdir()
+    (d / "delay_a0.py").write_text(
+        "from antigreedy.governance.policy import Policy\n"
+        "class DelayA0(Policy):\n"
+        "    name, priority = 'delay_a0', 5\n"
+        "    def evaluate(self, a, s, h):\n"
+        "        if a.agent_id == 'A' and a.round == 0:\n"
+        "            return self.delay(0.0, reason='hold A r0')\n"
+        "        return self.allow()\n")
+    _, events, _ = _run(d, budget=5000, max_rounds=3, dominator=None)
+    delayed = [e for e in events if e["type"] == "turn"
+               and e["data"]["verdict"] == "delivered_after_delay"]
+    assert delayed, "A's delayed message must be delivered in a later round"
+    assert delayed[0]["data"]["agent_id"] == "A"
+    assert delayed[0]["data"]["round"] >= 1
+
+
+class _BoomBackend:
+    async def complete(self, prompt, max_tokens):
+        raise RuntimeError("backend boom")
+
+
+def test_errored_episode_outcome(tmp_path):
+    d = tmp_path / "empty"; d.mkdir()
+    loader = PolicyLoader(d)
+    state = SharedState()
+    ip = InProcessInterceptPoint(loader, state)
+    stream = EventStream("t", "baseline", 0)
+    cfg = MeetingConfig(run_id="t", condition="baseline", episode=0,
+                        personas={a: "" for a in "ABCD"}, budget=500, max_rounds=3)
+    out = asyncio.run(run_episode(cfg, _BoomBackend(), ip, stream, state))
+    assert out["outcome"] == "errored"
+    assert any(e["type"] == "error" for e in stream.events)
+    assert any(e["type"] == "episode_end" and e["data"]["outcome"] == "errored"
+               for e in stream.events)

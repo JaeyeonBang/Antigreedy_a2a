@@ -4,6 +4,7 @@ so 'verified with mock' means something. Structured parsing lives in
 antigreedy.protocol, not here.
 """
 from __future__ import annotations
+import asyncio
 import os
 from typing import Protocol, TypedDict
 
@@ -57,7 +58,6 @@ class OpenRouterBackend:
         self.max_retries = max_retries
 
     async def complete(self, prompt: str, max_tokens: int) -> CompletionResult:
-        import asyncio
         import httpx
         payload = {
             "model": self.model,

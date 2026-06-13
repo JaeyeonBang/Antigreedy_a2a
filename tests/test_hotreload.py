@@ -57,3 +57,31 @@ def test_syntax_error_keeps_previous(tmp_path):
 def test_repo_policies_dir_loads():
     L = PolicyLoader(Path(__file__).resolve().parent.parent / "policies")
     assert {"airtime_quota", "allow_all"} <= set(L.policy_names())
+
+
+def test_no_policy_subclass_is_ignored(tmp_path):
+    d = tmp_path / "pol"; d.mkdir()
+    (d / "notapolicy.py").write_text("VALUE = 1\n")
+    L = PolicyLoader(d)
+    assert L.policy_names() == []
+
+
+def test_watch_thread_picks_up_edit(tmp_path):
+    import time
+    d = tmp_path / "pol"; d.mkdir(); f = d / "cap.py"; _w(f, V1)
+    L = PolicyLoader(d)
+    L.start_watching(poll_delay_ms=100)
+    try:
+        a = AgentAction(agent_id="x", token_estimate=50)
+        assert L.chain.evaluate(a, SharedState()).verdict == Verdict.ALLOW
+        # polling compares mtime; separate the writes so V2 lands in a new tick
+        time.sleep(1.1)
+        _w(f, V2)
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            if L.chain.evaluate(a, SharedState()).verdict == Verdict.DENY:
+                break
+            time.sleep(0.1)
+        assert L.chain.evaluate(a, SharedState()).verdict == Verdict.DENY
+    finally:
+        L.stop_watching()
