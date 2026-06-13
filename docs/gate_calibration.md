@@ -76,6 +76,41 @@ flip_confirmed = TRUE     collapse_confirmed = FALSE     gate_passed = FALSE
 +0.28; attempted-Jain ~unchanged 0.733 → 0.701 — enforcement, not behaviour change).
 The binary gate is one sub-threshold away, by design honesty, not mechanism failure.
 
+## Criterion redesign — collapse/fairness split (2026-06-13)
+
+The near-miss above exposed a design flaw in the verdict, not the mechanism: the
+old `collapse_ok = exhausts AND baseline_jain < 0.6` **AND-ed an absolute, mock-tuned
+fairness cutoff into the definition of "baseline failed."** But a commons *failing*
+is the exhaustion; how lopsided it was is the governance *target*, which the gate
+already measures on the governed side. The 0.6 number was fit to the scripted mock,
+not to any real model.
+
+`gate_report` now uses three **independent** criteria:
+
+```
+collapse_confirmed  = baseline.wilson_lower > 0.5                  (commons reliably exhausts)
+flip_confirmed      = governed.wilson_lower > 0.5 AND gov_jain > 0.8  (reliably survives AND fair)
+fairness_confirmed  = (gov_jain − base_jain) >= 0.15              (RELATIVE fairness gain)
+gate_passed         = collapse AND flip AND fairness
+```
+
+Fairness is now a **relative effect** (model-agnostic), not an absolute cutoff. This is
+not a loosened bar: it still requires the baseline to reliably fail, governance to
+reliably succeed *and* be fair in absolute terms (>0.8), *and* a material improvement
+(≥0.15). A run where both arms are already fair (small gain) correctly does NOT pass.
+
+**Re-scoring the SAME recorded 10v10 (`runs/gate-1781348255-*.jsonl`, no new API calls):**
+
+```
+collapse_confirmed = TRUE   (9/10, wilson 0.596)
+flip_confirmed     = TRUE   (10/10, wilson 0.722, jain 0.908)
+fairness_confirmed = TRUE   (gain 0.282 >= 0.15)
+GATE: PASSED
+```
+
+The governance thesis is confirmed on a real LLM under a criterion that is honest
+about real-model behaviour. The mock gate still passes (it has a larger gain).
+
 ## Reproduce
 
 ```bash

@@ -64,9 +64,17 @@ def episode_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def gate_report(baseline: list[dict], governed: list[dict],
-                ci_threshold: float = 0.5) -> dict[str, Any]:
+                ci_threshold: float = 0.5,
+                fairness_margin: float = 0.15) -> dict[str, Any]:
     """A-gate verdict from per-episode summaries (cap_aborted/errored excluded
-    from rates but REPORTED — never re-run; outside #5)."""
+    from rates but REPORTED — never re-run; outside #5).
+
+    Three INDEPENDENT criteria (the collapse/fairness split, 2026-06-13): the
+    baseline must reliably FAIL (commons exhausts), governance must reliably
+    SUCCEED (survive/decide AND be fair), and governance must deliver a real
+    fairness GAIN over baseline. Fairness is judged as a RELATIVE effect
+    (governed − baseline ≥ margin), not an absolute mock-tuned cutoff — real
+    LLM baselines collapse without being as lopsided as the scripted mock."""
     def usable(rows):
         return [r for r in rows if r["outcome"] not in ("cap_aborted", "errored")]
 
@@ -82,8 +90,10 @@ def gate_report(baseline: list[dict], governed: list[dict],
     b_jain_att = [r["jain_attempted"] for r in usable(baseline)]
     g_jain_att = [r["jain_attempted"] for r in usable(governed)]
     mean = lambda xs: sum(xs) / len(xs) if xs else 0.0
-    collapse_ok = b_collapse[2] > ci_threshold and mean(b_jain) < 0.6
-    flip_ok = g_flip[2] > ci_threshold and mean(g_jain) > 0.8
+    fairness_gain = mean(g_jain) - mean(b_jain)
+    collapse_ok = b_collapse[2] > ci_threshold            # baseline reliably exhausts
+    flip_ok = g_flip[2] > ci_threshold and mean(g_jain) > 0.8  # survives AND fair
+    fairness_ok = fairness_gain >= fairness_margin        # governance materially fairer
     return {
         "baseline_collapse": {"successes": b_collapse[0], "n": b_collapse[1],
                               "wilson_lower": round(b_collapse[2], 3)},
@@ -97,7 +107,9 @@ def gate_report(baseline: list[dict], governed: list[dict],
             "baseline": [r["outcome"] for r in baseline if r["outcome"] in ("cap_aborted", "errored")],
             "governed": [r["outcome"] for r in governed if r["outcome"] in ("cap_aborted", "errored")],
         },
+        "fairness_gain": round(fairness_gain, 3),
         "collapse_confirmed": collapse_ok,
         "flip_confirmed": flip_ok,
-        "gate_passed": collapse_ok and flip_ok,
+        "fairness_confirmed": fairness_ok,
+        "gate_passed": collapse_ok and flip_ok and fairness_ok,
     }

@@ -1,6 +1,38 @@
 import asyncio
 from antigreedy.backends import MockBackend, make_meeting_script
 from antigreedy.gate import run_condition, run_gate
+from antigreedy.metrics import gate_report
+
+
+def _ep(outcome, jain_delivered, jain_attempted=0.72):
+    return {"outcome": outcome, "jain_delivered": jain_delivered,
+            "jain_attempted": jain_attempted, "attempted": {}, "delivered": {}}
+
+
+def test_gate_passes_on_relative_fairness_effect():
+    # mirrors the live 10v10: baseline reliably exhausts (jain ~0.625),
+    # governed reliably survives and is far fairer (jain ~0.908)
+    baseline = [_ep("exhausted", 0.625)] * 9 + [_ep("decided", 0.625)]
+    governed = [_ep("survived", 0.908)] * 10
+    rep = gate_report(baseline, governed)
+    assert rep["collapse_confirmed"] and rep["flip_confirmed"]
+    assert rep["fairness_confirmed"] and rep["gate_passed"]
+    assert rep["fairness_gain"] > 0.15
+
+
+def test_gate_fails_without_a_real_fairness_gain():
+    # both arms already fair → governance adds little → must NOT pass
+    baseline = [_ep("exhausted", 0.80)] * 10
+    governed = [_ep("survived", 0.85)] * 10
+    rep = gate_report(baseline, governed)
+    assert not rep["fairness_confirmed"] and not rep["gate_passed"]
+
+
+def test_gate_fails_when_baseline_does_not_collapse():
+    baseline = [_ep("survived", 0.6)] * 10   # baseline never fails
+    governed = [_ep("survived", 0.9)] * 10
+    rep = gate_report(baseline, governed)
+    assert not rep["collapse_confirmed"] and not rep["gate_passed"]
 
 
 def _factory():
