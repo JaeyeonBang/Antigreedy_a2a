@@ -31,6 +31,10 @@ class ABConfig:
     agents: list[str] = field(default_factory=lambda: ["A", "B", "C", "D"])
     budget: int = 1200      # large enough that GOVERNED survives while baseline collapses
     max_rounds: int = 8
+    live_delay: float = 0.6   # per-turn pause in live mode so a human can click mid-run
+    live_budget: int = 18000  # bigger commons so the ungoverned phase lasts long enough to rescue
+    live_max_rounds: int = 14
+    live_max_tokens: int = 8000  # don't clip the hog — its big turn must EXCEED the per-turn cap
 
 
 async def run_ab(baseline_dir: Path, governed_dir: Path, *, backend: LLMBackend,
