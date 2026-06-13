@@ -85,8 +85,15 @@ const COL = { allow:'#3fb950', modify:'#d29922', deny:'#f85149', delay:'#a371f7'
 const S = {};  // condition -> {cy, budget, delivered:{}}
 function reset(cond){ S[cond] = { cy:null, budget:1, delivered:{} };
   document.getElementById('feed-'+cond).innerHTML='';
-  document.getElementById('out-'+cond).textContent='running';
-  document.getElementById('out-'+cond).style.background='#30363d'; }
+  document.getElementById('g-'+cond).innerHTML='';
+  const bar=document.getElementById('bar-'+cond); bar.style.width='100%'; bar.style.background='#3fb950';
+  document.getElementById('commons-'+cond).textContent='commons: —';
+  const o=document.getElementById('out-'+cond); o.textContent='running'; o.style.background='#30363d'; }
+function idle(cond, label){
+  document.getElementById('g-'+cond).innerHTML='';
+  document.getElementById('feed-'+cond).innerHTML='';
+  document.getElementById('commons-'+cond).textContent=label;
+  const o=document.getElementById('out-'+cond); o.textContent='idle'; o.style.background='transparent'; }
 
 function handle(ev){
   const cond = ev.condition; if(!cond) return;
@@ -105,7 +112,7 @@ function handle(ev){
       const pct = Math.max(0, Math.min(100, 100*d.commons_left/st.budget));
       const bar=document.getElementById('bar-'+cond);
       bar.style.width=pct+'%'; bar.style.background = pct<25?'#f85149':pct<60?'#d29922':'#3fb950';
-      document.getElementById('commons-'+cond).textContent='commons: '+d.commons_left+' / '+st.budget;
+      document.getElementById('commons-'+cond).textContent='commons: '+Math.max(0,d.commons_left)+' / '+st.budget;
     }
     const f=document.getElementById('feed-'+cond);
     const row=document.createElement('div');
@@ -131,11 +138,17 @@ function startRun(mode){
   const run=document.getElementById('run'), probe=document.getElementById('probe');
   run.disabled=probe.disabled=true;
   (mode==='probe'?probe:run).textContent='running…';
-  ['baseline','governed'].forEach(reset);
   const govOn=document.getElementById('gov').checked;
+  reset('governed');
   document.querySelector('#p-governed h2').textContent =
     mode==='probe' ? '🚩 Deception Probe' : (govOn ? 'Governed' : 'Governed · governance OFF');
-  if(mode==='probe') document.querySelector('#p-baseline h2').textContent='(idle — probe runs right)';
+  if(mode==='probe'){
+    document.querySelector('#p-baseline h2').textContent='Baseline · idle';
+    idle('baseline','(probe runs in the right panel)');
+  } else {
+    document.querySelector('#p-baseline h2').textContent='Baseline · ungoverned';
+    reset('baseline');
+  }
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
   ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);

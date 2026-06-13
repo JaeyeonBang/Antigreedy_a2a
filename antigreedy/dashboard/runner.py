@@ -29,8 +29,8 @@ from antigreedy.scenario.meeting import MeetingConfig, run_episode
 class ABConfig:
     run_id: str = "ab"
     agents: list[str] = field(default_factory=lambda: ["A", "B", "C", "D"])
-    budget: int = 400
-    max_rounds: int = 6
+    budget: int = 1200      # large enough that GOVERNED survives while baseline collapses
+    max_rounds: int = 8
 
 
 async def run_ab(baseline_dir: Path, governed_dir: Path, *, backend: LLMBackend,
