@@ -39,6 +39,36 @@ def test_main_entry_wires_uvicorn(monkeypatch):
     assert calls["port"] == 9999 and calls["app"] is not None
 
 
+def _run_ws(client, config=None):
+    received = []
+    with client.websocket_connect("/ws") as ws:
+        if config is not None:
+            ws.send_json(config)
+        while True:
+            ev = ws.receive_json()
+            if ev.get("type") == "done":
+                break
+            received.append(ev)
+    return received
+
+
+def _gov_turns(events):
+    return [e for e in events if e["type"] == "turn" and e["condition"] == "governed"]
+
+
+def test_governance_toggle_off_removes_truncation():
+    client = TestClient(_app())
+    # toggle OFF → the governed panel runs WITHOUT policies → no modify/deny verdicts
+    off = _gov_turns(_run_ws(client, {"governed": False}))
+    assert off and all(t["data"]["verdict"] == "allow" for t in off)
+
+
+def test_governance_toggle_on_truncates():
+    client = TestClient(_app())
+    on = _gov_turns(_run_ws(client, {"governed": True}))
+    assert any(t["data"]["verdict"] == "modify" for t in on)  # governance applied
+
+
 def test_index_serves_html():
     client = TestClient(_app())
     r = client.get("/")
@@ -46,3 +76,4 @@ def test_index_serves_html():
     assert "text/html" in r.headers["content-type"]
     body = r.text.lower()
     assert "baseline" in body and "governed" in body  # the two panels
+    assert "governance" in body  # the toggle control

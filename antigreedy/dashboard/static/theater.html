@@ -12,9 +12,18 @@
   body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
   header { padding:14px 20px; border-bottom:1px solid #21262d; display:flex; align-items:center; gap:16px; }
   header h1 { font-size:16px; margin:0; }
-  #run { margin-left:auto; background:#238636; color:#fff; border:0; padding:8px 16px;
+  #run { background:#238636; color:#fff; border:0; padding:8px 16px;
          border-radius:6px; cursor:pointer; font-weight:600; }
   #run:disabled { opacity:.5; cursor:default; }
+  .tgl { margin-left:auto; display:flex; align-items:center; gap:8px; cursor:pointer;
+         color:var(--mut); user-select:none; }
+  .tgl input { appearance:none; width:38px; height:20px; border-radius:10px; background:#30363d;
+               position:relative; cursor:pointer; transition:background .15s; }
+  .tgl input:checked { background:#238636; }
+  .tgl input::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px;
+               border-radius:50%; background:#fff; transition:left .15s; }
+  .tgl input:checked::after { left:20px; }
+  .tgl b { color:var(--ink); }
   .wrap { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:#21262d; }
   .panel { background:var(--panel); padding:14px; min-height:60vh; }
   .panel h2 { margin:0 0 8px; font-size:14px; letter-spacing:.04em; text-transform:uppercase; }
@@ -34,7 +43,10 @@
 <header>
   <h1>Antigreedy — Airtime-Commons A/B Theater</h1>
   <span style="color:var(--mut)">baseline (ungoverned) vs governed — same agents, same seed, only the policy set differs</span>
-  <button id="run">▶ Run</button>
+  <label class="tgl" title="Add or remove governance on the right panel">
+    <input type="checkbox" id="gov" checked/> <b>Governance</b>
+  </label>
+  <button id="run" style="margin-left:14px">▶ Run</button>
 </header>
 <div class="wrap">
   <section class="panel baseline" id="p-baseline">
@@ -106,7 +118,10 @@ function handle(ev){
 document.getElementById('run').onclick=()=>{
   const btn=document.getElementById('run'); btn.disabled=true; btn.textContent='running…';
   ['baseline','governed'].forEach(reset);
+  const govOn=document.getElementById('gov').checked;
+  document.querySelector('#p-governed h2').textContent = govOn ? 'Governed' : 'Governed · governance OFF';
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
+  ws.onopen=()=>ws.send(JSON.stringify({governed:govOn}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
     if(ev.type==='done'){ ws.close(); btn.disabled=false; btn.textContent='▶ Run again'; return; }
     handle(ev); };

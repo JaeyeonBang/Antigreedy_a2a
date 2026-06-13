@@ -42,9 +42,22 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
         await websocket.accept()
+        # Optional first message: {"governed": bool}. The toggle button removes
+        # governance by pointing the "governed" arm at the empty baseline policy
+        # set, so both panels collapse — a live add/remove-governance demo.
+        governed = True
+        try:
+            msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.5)
+            if isinstance(msg, dict):
+                governed = bool(msg.get("governed", True))
+        except asyncio.TimeoutError:
+            pass
+        except WebSocketDisconnect:
+            return
+        governed_dir = policies_dir if governed else baseline_dir
         queue: asyncio.Queue = asyncio.Queue()
         task = asyncio.create_task(run_ab(
-            baseline_dir, policies_dir, backend=backend_factory(),
+            baseline_dir, governed_dir, backend=backend_factory(),
             sink=queue.put_nowait, cfg=cfg or ABConfig()))
         try:
             while not (task.done() and queue.empty()):
