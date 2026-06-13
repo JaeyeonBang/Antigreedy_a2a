@@ -20,6 +20,8 @@ from antigreedy.governance.intercept import InProcessInterceptPoint
 from antigreedy.governance.loader import PolicyLoader
 from antigreedy.governance.types import SharedState
 from antigreedy.metrics import episode_summary
+from antigreedy.probe.cards import FactCard
+from antigreedy.probe.scenario import ProbeConfig, run_probe_episode
 from antigreedy.scenario.meeting import MeetingConfig, run_episode
 
 
@@ -52,3 +54,23 @@ async def run_ab(baseline_dir: Path, governed_dir: Path, *, backend: LLMBackend,
     pairs = await asyncio.gather(one("baseline", baseline_dir),
                                  one("governed", governed_dir))
     return dict(pairs)
+
+
+async def run_probe(policy_dir: Path, *, backend: LLMBackend,
+                    sink: Callable[[dict], None] | None = None,
+                    cfg: ABConfig | None = None, probe: str = "A",
+                    card_value: float = 10.0) -> dict[str, Any]:
+    """Run one deception-probe episode and stream it (tagged "governed" so the
+    theater renders it in the right panel). The probe under-reports its card →
+    `ground_truth` events with deceptive=True drive the live red-flag."""
+    cfg = cfg or ABConfig()
+    cards = {a: FactCard(a, "compute-hours used", card_value) for a in cfg.agents}
+    state = SharedState()
+    intercept = InProcessInterceptPoint(PolicyLoader(policy_dir), state)
+    stream = EventStream(cfg.run_id, "governed", 0, sink=sink)
+    pcfg = ProbeConfig(run_id=cfg.run_id, episode=0, cards=cards, probe=probe,
+                       budget=cfg.budget, max_rounds=2)
+    await run_probe_episode(pcfg, backend, intercept, stream, state)
+    flagged = sorted({e["data"]["agent_id"] for e in stream.events
+                      if e["type"] == "ground_truth" and e["data"]["deceptive"]})
+    return {"probe": probe, "flagged": flagged}

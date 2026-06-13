@@ -12,9 +12,10 @@
   body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
   header { padding:14px 20px; border-bottom:1px solid #21262d; display:flex; align-items:center; gap:16px; }
   header h1 { font-size:16px; margin:0; }
-  #run { background:#238636; color:#fff; border:0; padding:8px 16px;
-         border-radius:6px; cursor:pointer; font-weight:600; }
-  #run:disabled { opacity:.5; cursor:default; }
+  #run,#probe { background:#238636; color:#fff; border:0; padding:8px 16px;
+         border-radius:6px; cursor:pointer; font-weight:600; margin-left:8px; }
+  #probe { background:#8e1519; }
+  #run:disabled,#probe:disabled { opacity:.5; cursor:default; }
   .tgl { margin-left:auto; display:flex; align-items:center; gap:8px; cursor:pointer;
          color:var(--mut); user-select:none; }
   .tgl input { appearance:none; width:38px; height:20px; border-radius:10px; background:#30363d;
@@ -46,7 +47,8 @@
   <label class="tgl" title="Add or remove governance on the right panel">
     <input type="checkbox" id="gov" checked/> <b>Governance</b>
   </label>
-  <button id="run" style="margin-left:14px">▶ Run</button>
+  <button id="run" style="margin-left:14px">▶ Run A/B</button>
+  <button id="probe">🚩 Deception probe</button>
 </header>
 <div class="wrap">
   <section class="panel baseline" id="p-baseline">
@@ -91,7 +93,7 @@ function handle(ev){
   const st = S[cond] || (S[cond] = { cy:null, budget:1, delivered:{} });
   const d = ev.data || {};
   if (ev.type==='episode_start'){
-    st.budget = d.budget; st.delivered = {};
+    st.budget = d.budget || 0; st.delivered = {};
     d.agents.forEach(a=> st.delivered[a]=0);
     st.cy = mkGraph('g-'+cond, d.agents);
   } else if (ev.type==='turn'){
@@ -99,34 +101,51 @@ function handle(ev){
     if (st.cy){ const n=st.cy.$('#'+a);
       n.data('sz', 24 + Math.sqrt(st.delivered[a])*6);
       n.data('col', COL[d.verdict] || '#1f6feb'); }
-    const left = d.commons_left ?? st.budget;
-    const pct = Math.max(0, Math.min(100, 100*left/st.budget));
-    const bar=document.getElementById('bar-'+cond);
-    bar.style.width=pct+'%'; bar.style.background = pct<25?'#f85149':pct<60?'#d29922':'#3fb950';
-    document.getElementById('commons-'+cond).textContent='commons: '+left+' / '+st.budget;
+    if (st.budget>0 && typeof d.commons_left==='number'){
+      const pct = Math.max(0, Math.min(100, 100*d.commons_left/st.budget));
+      const bar=document.getElementById('bar-'+cond);
+      bar.style.width=pct+'%'; bar.style.background = pct<25?'#f85149':pct<60?'#d29922':'#3fb950';
+      document.getElementById('commons-'+cond).textContent='commons: '+d.commons_left+' / '+st.budget;
+    }
     const f=document.getElementById('feed-'+cond);
     const row=document.createElement('div');
     row.innerHTML=`r${d.round} <b>${a}</b> <span class="v-${d.verdict}">${d.verdict}</span> `+
       `att ${d.attempted_tokens}→del ${d.delivered_tokens}`+(d.flags&&d.flags.airtime_greedy?' 🚩':'');
     f.prepend(row);
+  } else if (ev.type==='ground_truth'){
+    if (d.deceptive){
+      const a=d.agent_id;
+      if (st.cy){ const n=st.cy.$('#'+a); n.data('col','#f85149'); n.data('sz', Math.max(n.data('sz')||24, 44)); }
+      const f=document.getElementById('feed-'+cond);
+      const row=document.createElement('div'); row.style.color='#f85149';
+      row.innerHTML=`🚩 <b>${a}</b> DECEPTION — reported ${d.reported} vs true ${d.true_value}`;
+      f.prepend(row);
+    }
   } else if (ev.type==='decision' || ev.type==='episode_end'){
     const o=document.getElementById('out-'+cond);
     const outcome = d.outcome || 'decided'; o.textContent=outcome;
     o.style.background = (outcome==='survived'||outcome==='decided')?'#238636':'#8e1519';
   }
 }
-document.getElementById('run').onclick=()=>{
-  const btn=document.getElementById('run'); btn.disabled=true; btn.textContent='running…';
+function startRun(mode){
+  const run=document.getElementById('run'), probe=document.getElementById('probe');
+  run.disabled=probe.disabled=true;
+  (mode==='probe'?probe:run).textContent='running…';
   ['baseline','governed'].forEach(reset);
   const govOn=document.getElementById('gov').checked;
-  document.querySelector('#p-governed h2').textContent = govOn ? 'Governed' : 'Governed · governance OFF';
+  document.querySelector('#p-governed h2').textContent =
+    mode==='probe' ? '🚩 Deception Probe' : (govOn ? 'Governed' : 'Governed · governance OFF');
+  if(mode==='probe') document.querySelector('#p-baseline h2').textContent='(idle — probe runs right)';
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
-  ws.onopen=()=>ws.send(JSON.stringify({governed:govOn}));
+  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
-    if(ev.type==='done'){ ws.close(); btn.disabled=false; btn.textContent='▶ Run again'; return; }
+    if(ev.type==='done'){ ws.close(); run.disabled=probe.disabled=false;
+      run.textContent='▶ Run A/B'; probe.textContent='🚩 Deception probe'; return; }
     handle(ev); };
-  ws.onerror=()=>{ btn.disabled=false; btn.textContent='▶ Run (retry)'; };
-};
+  ws.onerror=()=>{ run.disabled=probe.disabled=false; };
+}
+document.getElementById('run').onclick=()=>startRun('ab');
+document.getElementById('probe').onclick=()=>startRun('probe');
 </script>
 </body>
 </html>
