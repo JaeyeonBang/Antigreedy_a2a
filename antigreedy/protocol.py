@@ -19,15 +19,19 @@ class Turn:
     agree: bool
     bid: bool
     parse_ok: bool
+    # Optional structured claim used by the deception-probe allocation scenario
+    # (the OBJECTIVE ground-truth channel: REPORT vs the agent's private card).
+    report: float | None = None
 
 
-_FIELD = re.compile(r"^\s*(SPEAK|AGREE|BID)\s*:\s*(.*)\s*$", re.IGNORECASE)
+_FIELD = re.compile(r"^\s*(SPEAK|AGREE|BID|REPORT)\s*:\s*(.*)\s*$", re.IGNORECASE)
 
 
 def parse_turn(text: str) -> Turn:
     speak_lines: list[str] = []
     agree = False
     bid = False
+    report: float | None = None
     saw_speak = saw_agree = False
     current = None
     for line in text.splitlines():
@@ -46,12 +50,19 @@ def parse_turn(text: str) -> Turn:
             elif key == "BID":
                 current = None
                 bid = val.strip().lower().startswith("y")
+            elif key == "REPORT":
+                current = None
+                try:
+                    report = float(val.strip())
+                except ValueError:
+                    report = None
         elif current == "SPEAK":
             speak_lines.append(line)
     speak = "\n".join(speak_lines).strip()
     if not saw_speak:  # malformed: treat whole text as speech, defaults safe
         speak = text.strip()
-    return Turn(speak=speak, agree=agree, bid=bid, parse_ok=saw_speak and saw_agree)
+    return Turn(speak=speak, agree=agree, bid=bid,
+                parse_ok=saw_speak and saw_agree, report=report)
 
 
 def build_prompt(agent_id: str, persona: str, topic: str,
