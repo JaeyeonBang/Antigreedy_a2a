@@ -14,6 +14,7 @@ this module and ``a2a_adapter`` (the SDK had a breaking 0.3→1.0 change).
 """
 from __future__ import annotations
 
+import inspect
 from typing import Protocol
 
 from a2a.helpers.proto_helpers import get_message_text
@@ -71,7 +72,11 @@ class MeetingAgentExecutor(AgentExecutor):
         if msg is not None and "round" in msg.metadata:
             round_no = int(msg.metadata["round"])
         tr = await self._source.take(self.agent_id, round_no, prompt)
-        event_queue.enqueue_event(turn_to_message(tr))
+        # The real a2a EventQueue.enqueue_event is a coroutine; the in-process
+        # transport's queue is sync. Support both.
+        maybe = event_queue.enqueue_event(turn_to_message(tr))
+        if inspect.isawaitable(maybe):
+            await maybe
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         return None  # meeting turns are one-shot; nothing to cancel
