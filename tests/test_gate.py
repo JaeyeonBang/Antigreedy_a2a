@@ -31,3 +31,16 @@ def test_run_condition_governed_survives(tmp_path):
                                      tmp_path, concurrency=3))
     assert all(r["outcome"] in ("survived", "decided") for r in rows)
     assert all(r["jain_delivered"] > 0.8 for r in rows)
+
+
+def _total_delivered(rows):
+    return sum(sum(r["delivered"].values()) for r in rows)
+
+
+def test_gate_budget_param_scales_commons(tmp_path):
+    # a larger commons budget lets a baseline episode deliver more before collapse
+    small = asyncio.run(run_condition("baseline", 1, None, _factory, "small",
+                                      tmp_path, concurrency=1, budget=600))
+    big = asyncio.run(run_condition("baseline", 1, None, _factory, "big",
+                                    tmp_path, concurrency=1, budget=4000))
+    assert _total_delivered(big) > _total_delivered(small)
