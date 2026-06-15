@@ -147,3 +147,61 @@ the model). All runs persist JSONL under `runs/` for offline re-analysis.
 - **LLM API cost** → mitigate with mock backend for plumbing + hard-bounded runs.
 - **A2A SDK churn** (recent 0.3→1.0 breaking change) → pin version, isolate behind an adapter.
 - **Over-scoping** → keep MVP to one scenario + a few policies.
+
+---
+
+## 11. Status — MVP SHIPPED (2026-06-15)
+
+All MVP legs are built, tested, and pushed (`origin/main`). Real-LLM evidence:
+- **A-gate**: governance flips a collapsing/unfair baseline → fair/surviving.
+  Powered 10v10 (claude-3.5-haiku): baseline collapses 9/10, governed survives
+  10/10, delivered-Jain 0.625→0.908. **GATE PASSED** (`docs/gate_calibration.md`).
+- **Deception probe**: a card-blind plausibility-prior monitor catches real-LLM
+  under-reporting at **P 1.0 / R 0.71 / F1 0.83** (`docs/probe_detection.md`).
+- **Bench**: one catalog (fairness/survival/welfare/cost/detection).
+- **A2A**: meeting runs over real a2a-sdk HTTP; truncation verified over the wire.
+- **Dashboard**: FastAPI+WS+Cytoscape A/B theater — Run A/B, 🔴 Live one-touch
+  govern, 🚩 Deception probe, Governance toggle. 114 tests / ~98% cov.
+
+## 12. v0.2 candidates — for CEO/eng review
+
+Three asks surfaced while demoing the dashboard; gather feedback before building.
+
+- **E1 — Beginner-friendly dashboard UX.** A first-time viewer should use every
+  feature without reading docs. Inline explainers for the jargon (**commons** =
+  the shared token budget the agents draw from; **airtime** = how much an agent
+  speaks; **verdict** allow/modify/deny = what governance did), a node/gauge
+  **legend**, empty-state guidance ("Press ▶ Run A/B to start"), and per-button
+  one-line "what this does". UX-writing pass, no new backend.
+
+- **E2 — In-dashboard policy editor (the evolution-substrate demo).** Write/paste
+  a `Policy` subclass in the UI → server writes it into a live (non-frozen) policy
+  dir → hot-reload picks it up → it governs the next/live run. Makes the thesis
+  ("policies are `.py`; the hot-reload substrate is an evolution substrate, LLMs
+  can author policies") tangible. **Security**: executes user-provided Python
+  server-side → LOCAL single-user only; gate behind a localhost-only flag and a
+  clear warning; never expose publicly. Builds on the existing PolicyLoader hot-reload.
+
+- **E3 — Experiment history.** Persist each run's report + config and let the user
+  list / re-open / compare past experiments. Foundation already exists: every run
+  writes JSONL under `runs/` and gate/bench write `*-report.json`. Add an index
+  (run id, scenario, policy set hash, key metrics, timestamp) + a history view in
+  the dashboard, and a diff between two runs. Turns one-shot demos into a logbook.
+
+**Review goal**: validate E1–E3 priority/scope and surface any higher-leverage
+feature (e.g., policy GAN red-team/blue-team loop, decision-quality LLM-judge,
+multi-scenario library, shareable run permalinks) before committing build effort.
+
+### CEO review decision (2026-06-16, /plan-ceo-review, SELECTIVE EXPANSION)
+
+**Goal clarified: a PPT presentation/demo, NOT a paper.** That reweights everything.
+
+- **ACCEPTED — build all three: E1 + E3 + E2.** For a live talk, E2 (author a policy
+  on-screen → hot-reload → agent behavior changes instantly) is the "wow" moment that
+  lands the thesis; E1 makes the live demo self-explanatory; E3 shows reproducibility.
+- **E2 security**: presenter's own machine → user-Python exec is acceptable. STILL gate
+  it localhost-only with a clear warning so it's never exposed publicly.
+- **DEFERRED (paper-leverage, not needed for a PPT)**: multi-model matrix,
+  decision-quality LLM-judge, policy GAN loop → TODOS.md.
+- **Sequencing for the demo**: E1 (audience can follow) → E2 (the live wow) → E3
+  (reproducibility). Static run-export is optional polish (slide screenshots suffice).
