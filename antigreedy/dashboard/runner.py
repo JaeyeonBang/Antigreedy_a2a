@@ -29,6 +29,7 @@ from antigreedy.scenario.meeting import MeetingConfig, run_episode
 class ABConfig:
     run_id: str = "ab"
     agents: list[str] = field(default_factory=lambda: ["A", "B", "C", "D"])
+    personas: dict[str, str] = field(default_factory=dict)  # per-agent persona (editable from UI)
     budget: int = 1200      # large enough that GOVERNED survives while baseline collapses
     max_rounds: int = 8
     live_delay: float = 0.6   # per-turn pause in live mode so a human can click mid-run
@@ -49,7 +50,7 @@ async def run_ab(baseline_dir: Path, governed_dir: Path, *, backend: LLMBackend,
         stream = EventStream(cfg.run_id, condition, 0, sink=sink)
         mcfg = MeetingConfig(run_id=cfg.run_id, condition=condition, episode=0,
                              agents=list(cfg.agents),
-                             personas={a: "" for a in cfg.agents},
+                             personas={a: cfg.personas.get(a, "") for a in cfg.agents},
                              budget=cfg.budget, max_rounds=cfg.max_rounds)
         out = await run_episode(mcfg, backend, intercept, stream, state)
         return condition, {"outcome": out["outcome"],

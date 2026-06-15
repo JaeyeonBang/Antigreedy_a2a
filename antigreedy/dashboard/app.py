@@ -235,6 +235,9 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                     run_cfg = replace(run_cfg, agents=_agents(msg["n_agents"]))
                 if msg.get("budget") is not None:    # configurable commons size
                     run_cfg = replace(run_cfg, budget=_clamp_budget(msg["budget"]))
+                if isinstance(msg.get("personas"), dict):  # editable per-agent personas
+                    run_cfg = replace(run_cfg, personas={
+                        str(k): str(v)[:1000] for k, v in msg["personas"].items()})
         except asyncio.TimeoutError:
             pass
         except WebSocketDisconnect:
@@ -293,7 +296,7 @@ async def _run_live(websocket: WebSocket, queue: "asyncio.Queue",
     stream = EventStream(cfg.run_id, "governed", 0, sink=sink or queue.put_nowait)
     mcfg = MeetingConfig(run_id=cfg.run_id, condition="governed", episode=0,
                          agents=list(cfg.agents),
-                         personas={a: "" for a in cfg.agents},
+                         personas={a: cfg.personas.get(a, "") for a in cfg.agents},
                          budget=cfg.live_budget, max_rounds=cfg.live_max_rounds)
     meeting = asyncio.create_task(run_meeting(mcfg, src, stream, state))
 

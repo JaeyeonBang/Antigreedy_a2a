@@ -208,6 +208,21 @@ test.describe('Agent count — configurable number of agents', () => {
   });
 });
 
+test.describe('Agent editing — per-agent personas', () => {
+  test('a persona typed in the editor flows into that agent\'s prompt', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#agents').selectOption('2');
+    await page.locator('#agented > summary').click();
+    await expect(page.locator('#agent-list textarea')).toHaveCount(2);   // rebuilt for 2 agents
+    await page.locator('#persona-A').fill('PERSONA_E2E_MARKER greedy lead');
+    await runAB(page);
+    // open A's turn and confirm the persona is in the prompt
+    await page.locator('#feed-governed .turnrow').filter({ hasText: 'A' }).first().click();
+    await expect(page.locator('#feed-governed .turndetail').first())
+      .toContainText('PERSONA_E2E_MARKER');
+  });
+});
+
 test.describe('Clear history — demo reset', () => {
   test('전체 비우기 empties the history list', async ({ page }) => {
     await page.goto('/');

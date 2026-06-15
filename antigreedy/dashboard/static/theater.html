@@ -115,6 +115,8 @@
               border-radius:6px; padding:7px 9px; font:12.5px ui-monospace,monospace; }
   #pol-source { background:#0b0e13; border:1px solid #30363d; color:#e6edf3; border-radius:6px;
                 padding:9px; font:12.5px/1.55 ui-monospace,monospace; resize:vertical; width:100%; }
+  .persona-in { background:#0b0e13; border:1px solid #30363d; color:#e6edf3; border-radius:6px;
+                padding:8px; font:12.5px/1.5 system-ui,sans-serif; resize:vertical; width:100%; }
   .ed-actions { display:flex; align-items:center; gap:10px; }
   #pol-save,#hist-refresh,#hist-compare,#hist-clear { background:#238636; color:#fff; border:0;
               padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:700; font-size:12.5px; }
@@ -255,6 +257,15 @@ class MyRule(Policy):
         <div id="pol-list" class="ed-list"></div>
       </div>
     </div>
+  </details>
+
+  <details class="editor" id="agented">
+    <summary>🧑‍🤝‍🧑 에이전트 편집 — 각 에이전트에 페르소나(성격) 부여</summary>
+    <p class="ed-help">
+      각 에이전트의 페르소나를 입력하면 프롬프트에 반영됩니다. <b>실 LLM</b>에서는 행동이 바뀌고,
+      Mock에서는 프롬프트에만 표시됩니다(턴 행을 클릭해 확인). 위의 <b>에이전트 수</b>를 바꾸면 목록이 자동 갱신됩니다.
+    </p>
+    <div id="agent-list" class="ed-grid" style="grid-template-columns:1fr 1fr"></div>
   </details>
 
   <details class="editor" id="history">
@@ -449,7 +460,8 @@ function startRun(mode){
     reset('baseline');
   }
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
-  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents, budget:budget}));
+  const personas=collectPersonas();
+  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents, budget:budget, personas:personas}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
     if(ev.type==='done'){ ws.close(); restoreBtns(); endLive(); loadHistory(); return; }
     handle(ev); };
@@ -550,6 +562,29 @@ async function applyPreset(name){
 }
 document.getElementById('preset').onchange=(e)=>applyPreset(e.target.value);
 loadPresets();
+
+// ---- 에이전트 편집: 각 에이전트 페르소나 입력 (실 LLM에서 행동 반영) -------
+function renderAgentEditor(){
+  const n=parseInt(document.getElementById('agents').value)||4;
+  const box=document.getElementById('agent-list');
+  const prev={}; box.querySelectorAll('textarea').forEach(t=>{ if(t.value) prev[t.id]=t.value; });
+  box.innerHTML='';
+  for(let i=0;i<n;i++){ const id='ABCDEFGH'[i];
+    const w=document.createElement('div');
+    w.innerHTML=`<div class="ed-listhdr">에이전트 ${id}</div>`+
+      `<textarea id="persona-${id}" class="persona-in" rows="2" `+
+      `placeholder="예: ${id}는 발언권을 독점하려는 탐욕적 성향"></textarea>`;
+    box.appendChild(w);
+    if(prev['persona-'+id]) w.querySelector('textarea').value=prev['persona-'+id];
+  }
+}
+function collectPersonas(){
+  const p={}; document.querySelectorAll('#agent-list textarea').forEach(t=>{
+    const id=t.id.replace('persona-',''); if(t.value.trim()) p[id]=t.value.trim(); });
+  return p;
+}
+document.getElementById('agents').addEventListener('change', renderAgentEditor);
+renderAgentEditor();
 
 // ---- 실험 기록 (E3): 지난 런 목록, 다시 열어 재생 -----------------------
 function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+outKo(v)).join('  '); }
