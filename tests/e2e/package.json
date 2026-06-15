@@ -1,0 +1,12 @@
+{
+  "name": "antigreedy-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser e2e for the Antigreedy A/B Theater dashboard (E1/E2/E3 flows)",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0"
+  }
+}
