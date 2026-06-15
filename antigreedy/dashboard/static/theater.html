@@ -73,6 +73,14 @@
   .gaugelbl { font-size:11.5px; color:var(--mut); margin-bottom:2px; }
   .meta { display:flex; justify-content:space-between; color:var(--mut); font-size:12.5px; }
   .badge { padding:3px 10px; border-radius:10px; font-size:12.5px; font-weight:700; }
+  /* 공정성 메트릭 패널 */
+  .metrics { margin-top:9px; font-size:12.5px; color:var(--mut); display:none;
+             background:#0d1117; border:1px solid #2a3340; border-radius:7px; padding:9px 11px; }
+  .metrics.show { display:block; }
+  .metrics .row { display:flex; align-items:center; gap:9px; margin:3px 0; }
+  .metrics .fair { font-weight:700; font-size:13.5px; }
+  .mbar { flex:1; height:10px; background:#161b22; border-radius:5px; overflow:hidden; display:flex; }
+  .mbar i { height:100%; }
   .feed { margin-top:12px; max-height:230px; overflow:auto; font:12.5px/1.5 ui-monospace,monospace; }
   .feed div { padding:3px 0; border-bottom:1px solid #1b2129; }
   .v-allow{color:var(--ok);} .v-modify{color:var(--warn);} .v-deny{color:var(--bad);} .v-delay{color:#a371f7;}
@@ -256,6 +264,7 @@ class MyRule(Policy):
     <div class="gaugelbl">남은 커먼즈(공유 예산)</div>
     <div class="gauge"><span id="bar-baseline" style="width:100%"></span></div>
     <div class="meta"><span id="commons-baseline">커먼즈: —</span><span class="badge" id="out-baseline">대기</span></div>
+    <div class="metrics" id="metrics-baseline"></div>
     <div class="feed" id="feed-baseline"></div>
   </section>
   <section class="panel governed" id="p-governed">
@@ -265,6 +274,7 @@ class MyRule(Policy):
     <div class="gaugelbl">남은 커먼즈(공유 예산)</div>
     <div class="gauge"><span id="bar-governed" style="width:100%"></span></div>
     <div class="meta"><span id="commons-governed">커먼즈: —</span><span class="badge" id="out-governed">대기</span></div>
+    <div class="metrics" id="metrics-governed"></div>
     <div class="feed" id="feed-governed"></div>
   </section>
 </div>
@@ -292,12 +302,14 @@ const S = {};  // condition -> {cy, budget, delivered:{}}
 function reset(cond){ S[cond] = { cy:null, budget:1, delivered:{} };
   document.getElementById('feed-'+cond).innerHTML='';
   document.getElementById('g-'+cond).innerHTML='';
+  clearMetrics(cond);
   const bar=document.getElementById('bar-'+cond); bar.style.width='100%'; bar.style.background='#3fb950';
   document.getElementById('commons-'+cond).textContent='커먼즈: —';
   const o=document.getElementById('out-'+cond); o.textContent='실행 중'; o.style.background='#30363d'; }
 function idle(cond, label){
   document.getElementById('g-'+cond).innerHTML='';
   document.getElementById('feed-'+cond).innerHTML='';
+  clearMetrics(cond);
   document.getElementById('commons-'+cond).textContent=label;
   const o=document.getElementById('out-'+cond); o.textContent='대기'; o.style.background='transparent'; }
 
@@ -347,8 +359,31 @@ function handle(ev){
     const o=document.getElementById('out-'+cond);
     const outcome = d.outcome || 'decided'; o.textContent=outKo(outcome);
     o.style.background = (outcome==='survived'||outcome==='decided')?'#238636':'#8e1519';
+    if (d.metrics) renderMetrics(cond, d.metrics);
   }
 }
+// 공정성 메트릭 패널: Jain 지수(0~1, 1=완전 공정) + 최대 발언 점유 + 에이전트별 점유 바
+const AGENT_COL = ['#1f6feb','#3fb950','#d29922','#a371f7','#f85149','#39c5cf','#db61a2','#c9d1d9'];
+function fairColor(j){ return j>=0.8?'#3fb950':j>=0.6?'#d29922':'#f85149'; }
+function renderMetrics(cond, m){
+  const el=document.getElementById('metrics-'+cond); if(!el) return;
+  const j=(typeof m.jain_delivered==='number')?m.jain_delivered:0;
+  const top=Math.round((m.top_share||0)*100);
+  const agents=Object.keys(m.delivered||{}).sort();
+  const total=agents.reduce((s,a)=>s+(m.delivered[a]||0),0)||1;
+  const bars=agents.map((a,i)=>{
+    const pct=100*(m.delivered[a]||0)/total;
+    return `<i title="${a}: ${m.delivered[a]||0} 토큰 (${pct.toFixed(0)}%)" `+
+           `style="width:${pct}%;background:${AGENT_COL[i%AGENT_COL.length]}"></i>`;
+  }).join('');
+  el.innerHTML=
+    `<div class="row"><span class="fair" style="color:${fairColor(j)}">공정성(Jain) ${j.toFixed(2)}</span>`+
+    `<span>· 최대 발언 점유 ${top}% · ${j>=0.8?'공정':j>=0.6?'다소 불균형':'독점적'}</span></div>`+
+    `<div class="row"><span style="min-width:82px">발언 점유</span><span class="mbar">${bars}</span></div>`;
+  el.classList.add('show');
+}
+function clearMetrics(cond){ const el=document.getElementById('metrics-'+cond);
+  if(el){ el.innerHTML=''; el.classList.remove('show'); } }
 // 턴 행 클릭 → 대화 공개: 에이전트가 본 프롬프트, 말한 내용(원문), 거버넌스가 실제 전달한 내용
 // (정책이 텍스트를 바꿨으면 원문→전달본 차이를 강조).
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }

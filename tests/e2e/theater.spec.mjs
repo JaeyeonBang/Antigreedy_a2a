@@ -149,6 +149,16 @@ test.describe('E3 — experiment history (persist + replay)', () => {
   });
 });
 
+test.describe('Fairness metrics — Jain readout after a run', () => {
+  test('both panels show a Jain fairness readout when the run ends', async ({ page }) => {
+    await page.goto('/');
+    await runAB(page);
+    await expect(page.locator('#metrics-governed')).toContainText('공정성(Jain)');
+    await expect(page.locator('#metrics-baseline')).toContainText('공정성(Jain)');
+    await expect(page.locator('#metrics-governed')).toContainText('발언 점유');
+  });
+});
+
 test.describe('Agent count — configurable number of agents', () => {
   test('selecting 3 agents runs a 3-agent meeting (no agent D)', async ({ page }) => {
     await page.goto('/');

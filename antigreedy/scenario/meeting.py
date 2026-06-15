@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from antigreedy.backends import LLMBackend, rough_tokens
 from antigreedy.events import EventStream
 from antigreedy.governance.intercept import InterceptPoint
+from antigreedy.metrics import jain
 from antigreedy.governance.types import SharedState, Verdict
 from antigreedy.protocol import build_prompt
 from antigreedy.turnsource import InProcessTurnSource, TurnSource
@@ -159,9 +160,21 @@ async def run_meeting(cfg: MeetingConfig, source: TurnSource, stream: EventStrea
     except Exception:
         outcome = "errored"
 
+    delivered = dict(state.airtime_delivered)
+    attempted = dict(state.airtime_attempted)
+    total_delivered = sum(delivered.values())
     stream.emit("episode_end", {"outcome": outcome,
                                 "commons_left": commons_left(),
-                                "attempted_total": attempted_total},
+                                "attempted_total": attempted_total,
+                                "metrics": {
+                                    "jain_delivered": round(jain(delivered.values()), 3),
+                                    "jain_attempted": round(jain(attempted.values()), 3),
+                                    "delivered": delivered,
+                                    "attempted": attempted,
+                                    # biggest single airtime share (1.0 = total monopoly)
+                                    "top_share": round(max(delivered.values()) / total_delivered, 3)
+                                    if total_delivered > 0 else 0.0,
+                                }},
                 policy_set_hash=psh)
     return {"outcome": outcome, "commons_left": commons_left()}
 
