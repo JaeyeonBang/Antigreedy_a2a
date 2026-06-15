@@ -77,3 +77,19 @@ def test_index_serves_html():
     body = r.text.lower()
     assert "baseline" in body and "governed" in body  # the two panels
     assert "governance" in body  # the toggle control
+
+
+def test_index_is_beginner_friendly():
+    """E1: a first-time viewer can use every feature without docs — jargon
+    glosses, a legend, empty-state guidance, and per-button explanations."""
+    body = TestClient(_app()).get("/").text.lower()
+    # jargon glosses
+    assert "shared token budget" in body          # commons explained
+    assert "airtime" in body                       # airtime explained
+    # legend mapping the visuals (node colour = verdict, size = airtime)
+    assert "legend" in body
+    assert "allow" in body and "modify" in body and "deny" in body
+    # empty-state guidance before any run
+    assert "to start" in body or "press" in body
+    # per-button "what this does" help text (beyond the bare button labels)
+    assert "what this does" in body or "side-by-side" in body
