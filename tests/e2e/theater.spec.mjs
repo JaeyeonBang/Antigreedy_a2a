@@ -159,6 +159,26 @@ test.describe('Fairness metrics — Jain readout after a run', () => {
   });
 });
 
+test.describe('History diff — compare two runs', () => {
+  test('select two runs and compare their fairness side by side', async ({ page }) => {
+    await page.goto('/');
+    await runAB(page);                 // produce two runs to compare
+    await runAB(page);
+
+    await page.locator('#history > summary').click();
+    await page.locator('#hist-refresh').click();
+    await page.locator('#hist-list .item .hist-pick').nth(0).check();
+    await page.locator('#hist-list .item .hist-pick').nth(1).check();
+    await expect(page.locator('#hist-compare')).toBeEnabled();
+    await page.locator('#hist-compare').click();
+
+    const diff = page.locator('#hist-diff');
+    await expect(diff.locator('table.difftable')).toBeVisible();
+    await expect(diff).toContainText('공정성(Jain)');
+    await expect(diff).toContainText('조건');
+  });
+});
+
 test.describe('Agent count — configurable number of agents', () => {
   test('selecting 3 agents runs a 3-agent meeting (no agent D)', async ({ page }) => {
     await page.goto('/');

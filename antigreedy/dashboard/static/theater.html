@@ -116,8 +116,14 @@
   #pol-source { background:#0b0e13; border:1px solid #30363d; color:#e6edf3; border-radius:6px;
                 padding:9px; font:12.5px/1.55 ui-monospace,monospace; resize:vertical; width:100%; }
   .ed-actions { display:flex; align-items:center; gap:10px; }
-  #pol-save { background:#238636; color:#fff; border:0; padding:8px 15px; border-radius:6px;
-              cursor:pointer; font-weight:700; }
+  #pol-save,#hist-refresh,#hist-compare { background:#238636; color:#fff; border:0;
+              padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:700; font-size:12.5px; }
+  #hist-refresh { background:#30363d; }
+  .hist-pick { margin-right:8px; cursor:pointer; }
+  .difftable { width:100%; border-collapse:collapse; font-size:12.5px; margin:4px 0 2px; }
+  .difftable th,.difftable td { border:1px solid #21262d; padding:6px 9px; text-align:left; }
+  .difftable th { color:var(--mut); font-weight:600; background:#0d1117; }
+  .difftable td.better { color:var(--ok); font-weight:700; }
   .ed-status { font-size:12.5px; color:var(--mut); }
   .ed-status.ok { color:var(--ok); } .ed-status.err { color:var(--bad); }
   .ed-listhdr { font-size:11.5px; color:var(--mut); margin-bottom:6px; letter-spacing:.02em; }
@@ -251,8 +257,10 @@ class MyRule(Policy):
     </p>
     <div class="ed-actions" style="padding:0 13px 6px">
       <button id="hist-refresh">새로고침</button>
+      <button id="hist-compare" disabled>선택한 2개 비교</button>
       <span class="ed-status" id="hist-status"></span>
     </div>
+    <div id="hist-diff" style="padding:0 13px 6px"></div>
     <div id="hist-list" class="ed-list" style="padding:0 13px 13px"></div>
   </details>
 </header>
@@ -535,19 +543,66 @@ loadPresets();
 
 // ---- 실험 기록 (E3): 지난 런 목록, 다시 열어 재생 -----------------------
 function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+outKo(v)).join('  '); }
+const histPicked=new Set();
 function renderHistory(runs){
   const box=document.getElementById('hist-list'); box.innerHTML='';
   if(!runs || !runs.length){
+    histPicked.clear(); syncCompareBtn();
     box.innerHTML='<span class="ed-status">아직 기록 없음 — ▶ A/B 실행, 🔴 실시간, 🚩 기만 탐지를 눌러보세요</span>'; return; }
   runs.forEach(r=>{
     const row=document.createElement('div'); row.className='item';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.className='hist-pick';
+    cb.title='비교할 런 선택 (2개)'; cb.checked=histPicked.has(r.id);
+    cb.onclick=(e)=>{ e.stopPropagation();
+      if(cb.checked) histPicked.add(r.id); else histPicked.delete(r.id);
+      syncCompareBtn(); };
     const fn=document.createElement('span'); fn.className='fn';
     fn.textContent=`${r.created_iso} · ${r.mode} · ${fmtOutcomes(r.outcomes)}`
       +(r.deceptions&&r.deceptions.length?'  🚩'+r.deceptions.join(','):'');
     fn.title='다시 열어 재생'; fn.onclick=()=>replayRun(r.id);
-    row.appendChild(fn); box.appendChild(row);
+    row.appendChild(cb); row.appendChild(fn); box.appendChild(row);
   });
 }
+function syncCompareBtn(){
+  document.getElementById('hist-compare').disabled = histPicked.size!==2; }
+// 기록된 런의 이벤트에서 조건별 핵심 지표 추출 (episode_end의 metrics)
+function metricsFromRecord(rec){
+  const out={};
+  (rec.events||[]).forEach(e=>{
+    if(e.type==='episode_end' && e.condition){
+      const m=e.data.metrics||{};
+      out[e.condition]={ jain:(typeof m.jain_delivered==='number')?m.jain_delivered:null,
+        top:(typeof m.top_share==='number')?m.top_share:null,
+        outcome:e.data.outcome, commons:e.data.commons_left };
+    }
+  });
+  return out;
+}
+async function compareRuns(){
+  const ids=[...histPicked].slice(0,2);
+  const div=document.getElementById('hist-diff');
+  if(ids.length!==2){ div.innerHTML=''; return; }
+  try{
+    const recs=await Promise.all(ids.map(id=>fetch('/history/'+encodeURIComponent(id)).then(r=>r.json())));
+    const ms=recs.map(metricsFromRecord);
+    const conds=[...new Set([...Object.keys(ms[0]),...Object.keys(ms[1])])];
+    const fmt=(v)=> v==null?'—':(typeof v==='number'?v.toFixed(2):outKo(v));
+    let rows='';
+    conds.forEach(c=>{
+      const a=ms[0][c]||{}, b=ms[1][c]||{};
+      const aj=a.jain, bj=b.jain;
+      const aCls=(aj!=null&&bj!=null&&aj>bj)?' class="better"':'';
+      const bCls=(aj!=null&&bj!=null&&bj>aj)?' class="better"':'';
+      rows+=`<tr><td>${c}</td><td${aCls}>${fmt(aj)}</td><td${bCls}>${fmt(bj)}</td>`
+           +`<td>${fmt(a.top)} / ${fmt(b.top)}</td><td>${fmt(a.outcome)} / ${fmt(b.outcome)}</td></tr>`;
+    });
+    div.innerHTML=`<table class="difftable"><thead><tr>`+
+      `<th>조건</th><th>① 공정성(Jain)</th><th>② 공정성(Jain)</th><th>최대점유 ①/②</th><th>결과 ①/②</th>`+
+      `</tr></thead><tbody>${rows}</tbody></table>`+
+      `<div class="ed-status">① ${ids[0]}　② ${ids[1]} (공정성 높은 쪽 강조)</div>`;
+  }catch(e){ div.innerHTML='<span class="ed-status err">비교 실패</span>'; }
+}
+document.getElementById('hist-compare').onclick=compareRuns;
 async function loadHistory(){
   try{ const r=await fetch('/history'); renderHistory((await r.json()).runs); }catch(e){}
 }
