@@ -102,5 +102,5 @@ Two results are kept as documented findings, not tuned away:
 ## Status
 
 Research-stage. The publishable artifact is the **A-gate + probe + bench**; the A2A
-servers and dashboard are the distribution layer. Apache-style use; not affiliated
-with any vendor.
+servers and dashboard are the distribution layer. [MIT licensed](LICENSE); not
+affiliated with any vendor.
