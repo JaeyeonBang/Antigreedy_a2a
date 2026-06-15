@@ -580,9 +580,12 @@ function renderHistory(runs){
     fn.textContent=`${r.created_iso} · ${r.mode} · ${fmtOutcomes(r.outcomes)}${fmtFair(r.fairness)}`
       +(r.deceptions&&r.deceptions.length?'  🚩'+r.deceptions.join(','):'');
     fn.title='다시 열어 재생'; fn.onclick=()=>replayRun(r.id);
+    const ex=document.createElement('button'); ex.className='del'; ex.textContent='🌐';
+    ex.title='서버 없이 재생되는 standalone HTML 열기';
+    ex.onclick=(e)=>{ e.stopPropagation(); window.open('/history/'+encodeURIComponent(r.id)+'/export.html','_blank'); };
     const dl=document.createElement('button'); dl.className='del'; dl.textContent='⬇';
     dl.title='이 런을 JSON으로 내보내기'; dl.onclick=(e)=>{ e.stopPropagation(); downloadRun(r.id); };
-    row.appendChild(cb); row.appendChild(fn); row.appendChild(dl); box.appendChild(row);
+    row.appendChild(cb); row.appendChild(fn); row.appendChild(ex); row.appendChild(dl); box.appendChild(row);
   });
 }
 function syncCompareBtn(){

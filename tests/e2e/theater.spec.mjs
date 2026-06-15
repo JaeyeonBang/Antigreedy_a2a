@@ -189,7 +189,7 @@ test.describe('History export — download a run as JSON', () => {
     await expect(firstRow.locator('.fn')).toContainText('공정성');   // fairness in the list
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      firstRow.locator('.del').click(),                              // the ⬇ export button
+      firstRow.getByText('⬇').click(),                              // the ⬇ JSON export button
     ]);
     expect(download.suggestedFilename()).toMatch(/\.json$/);
   });
@@ -205,6 +205,24 @@ test.describe('Agent count — configurable number of agents', () => {
     const gov = page.locator('#feed-governed');
     await expect(gov).toContainText('C');        // agent C spoke
     await expect(gov).not.toContainText('D');    // no 4th agent in a 3-agent run
+  });
+});
+
+test.describe('Standalone export — offline-replayable HTML', () => {
+  test('the 🌐 button opens a self-contained run that replays without the server', async ({ page, context }) => {
+    await page.goto('/');
+    await runAB(page);
+    await page.locator('#history > summary').click();
+    await page.locator('#hist-refresh').click();
+    const [popup] = await Promise.all([
+      context.waitForEvent('page'),
+      page.locator('#hist-list .item').first().getByText('🌐').click(),
+    ]);
+    await popup.waitForLoadState();
+    // the exported page replays the run into a graph, with no WebSocket
+    await expect(popup.locator('h1')).toContainText('실험 내보내기');
+    await expect(popup.locator('.panel .graph canvas').first()).toBeVisible();
+    expect(await popup.content()).not.toContain('/ws');
   });
 });
 

@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from antigreedy.backends import (
     LLMBackend, MockBackend, make_meeting_script, make_probe_script,
 )
+from antigreedy.dashboard.export import build_standalone_html
 from antigreedy.dashboard.history import HistoryStore
 from antigreedy.dashboard.live import make_live
 from antigreedy.dashboard.runner import ABConfig, run_ab, run_probe
@@ -202,6 +203,13 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         if rec is None:
             return JSONResponse({"error": "not found"}, status_code=404)
         return JSONResponse(rec)
+
+    @app.get("/history/{run_id}/export.html", response_class=HTMLResponse)
+    async def history_export(run_id: str):
+        rec = history.get(run_id)
+        if rec is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return HTMLResponse(build_standalone_html(rec))
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
