@@ -116,9 +116,10 @@
   #pol-source { background:#0b0e13; border:1px solid #30363d; color:#e6edf3; border-radius:6px;
                 padding:9px; font:12.5px/1.55 ui-monospace,monospace; resize:vertical; width:100%; }
   .ed-actions { display:flex; align-items:center; gap:10px; }
-  #pol-save,#hist-refresh,#hist-compare { background:#238636; color:#fff; border:0;
+  #pol-save,#hist-refresh,#hist-compare,#hist-clear { background:#238636; color:#fff; border:0;
               padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:700; font-size:12.5px; }
   #hist-refresh { background:#30363d; }
+  #hist-clear { background:#8e1519; }
   .hist-pick { margin-right:8px; cursor:pointer; }
   .difftable { width:100%; border-collapse:collapse; font-size:12.5px; margin:4px 0 2px; }
   .difftable th,.difftable td { border:1px solid #21262d; padding:6px 9px; text-align:left; }
@@ -265,6 +266,7 @@ class MyRule(Policy):
     <div class="ed-actions" style="padding:0 13px 6px">
       <button id="hist-refresh">새로고침</button>
       <button id="hist-compare" disabled>선택한 2개 비교</button>
+      <button id="hist-clear" title="모든 실험 기록 삭제 (데모 리셋)">전체 비우기</button>
       <span class="ed-status" id="hist-status"></span>
     </div>
     <div id="hist-diff" style="padding:0 13px 6px"></div>
@@ -645,7 +647,17 @@ async function replayRun(id){
   }catch(e){ document.getElementById('hist-status').textContent='재생 실패';
     document.getElementById('hist-status').className='ed-status err'; }
 }
+async function clearHistory(){
+  if(!confirm('모든 실험 기록을 삭제할까요? 되돌릴 수 없습니다.')) return;
+  try{ await fetch('/history',{method:'DELETE'});
+    histPicked.clear(); syncCompareBtn();
+    document.getElementById('hist-diff').innerHTML='';
+    loadHistory();
+    const s=document.getElementById('hist-status'); s.textContent='기록을 비웠습니다 ✓'; s.className='ed-status ok';
+  }catch(e){ const s=document.getElementById('hist-status'); s.textContent='비우기 실패'; s.className='ed-status err'; }
+}
 document.getElementById('hist-refresh').onclick=loadHistory;
+document.getElementById('hist-clear').onclick=clearHistory;
 loadHistory();
 </script>
 </body>

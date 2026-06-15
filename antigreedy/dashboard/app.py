@@ -197,6 +197,13 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     async def history_list() -> dict:
         return {"runs": history.list()}
 
+    @app.delete("/history")
+    async def history_clear(request: Request) -> JSONResponse:
+        denied = _guard(request)
+        if denied is not None:
+            return denied
+        return JSONResponse({"ok": True, "cleared": history.clear()})
+
     @app.get("/history/{run_id}")
     async def history_get(run_id: str) -> JSONResponse:
         rec = history.get(run_id)

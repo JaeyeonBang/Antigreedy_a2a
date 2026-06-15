@@ -50,6 +50,15 @@ def test_get_history_record_returns_replayable_events():
     assert client.get("/history/does-not-exist").status_code == 404
 
 
+def test_delete_history_clears_all():
+    client = TestClient(_app())
+    _run_ws(client, {"mode": "ab", "governed": True})
+    assert client.get("/history").json()["runs"]      # one run present
+    r = client.delete("/history")
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert client.get("/history").json()["runs"] == []  # cleared
+
+
 def test_index_has_history_ui():
     body = TestClient(_app()).get("/").text.lower()
     assert "실험 기록" in body

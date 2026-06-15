@@ -208,6 +208,20 @@ test.describe('Agent count — configurable number of agents', () => {
   });
 });
 
+test.describe('Clear history — demo reset', () => {
+  test('전체 비우기 empties the history list', async ({ page }) => {
+    await page.goto('/');
+    await runAB(page);
+    await page.locator('#history > summary').click();
+    await page.locator('#hist-refresh').click();
+    await expect(page.locator('#hist-list .item').first()).toBeVisible();
+    page.on('dialog', d => d.accept());                 // confirm the clear
+    await page.locator('#hist-clear').click();
+    await expect(page.locator('#hist-status')).toContainText('비웠습니다');
+    await expect(page.locator('#hist-list')).toContainText('아직 기록 없음');
+  });
+});
+
 test.describe('Standalone export — offline-replayable HTML', () => {
   test('the 🌐 button opens a self-contained run that replays without the server', async ({ page, context }) => {
     await page.goto('/');

@@ -62,6 +62,17 @@ class HistoryStore:
             out.append(rec)
         return sorted(out, key=lambda r: r.get("created_at", 0), reverse=True)
 
+    def clear(self) -> int:
+        """Delete all persisted runs; return how many were removed."""
+        n = 0
+        for path in self.dir.glob("*.json"):
+            try:
+                path.unlink()
+                n += 1
+            except OSError:
+                pass
+        return n
+
     def get(self, run_id: str) -> dict[str, Any] | None:
         """Full record (with events) for one run, or None if unknown."""
         path = self.dir / f"{run_id}.json"

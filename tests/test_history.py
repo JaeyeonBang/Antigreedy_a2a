@@ -59,6 +59,14 @@ def test_get_unknown_id_returns_none():
     assert _store().get("nope") is None
 
 
+def test_clear_removes_all_runs():
+    s = _store()
+    s.save(mode="ab", events=_events("governed", "survived"))
+    s.save(mode="probe", events=_events("governed", "decided"))
+    assert s.clear() == 2          # returns how many were removed
+    assert s.list() == []
+
+
 def test_survives_restart_reads_from_disk():
     d = Path(tempfile.mkdtemp(prefix="ag_hist_"))
     rec = HistoryStore(d).save(mode="live", events=_events("governed", "survived"))
