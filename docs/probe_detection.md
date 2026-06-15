@@ -46,8 +46,34 @@ number-deception it structurally cannot observe**.
 3. The bench harness already reports detection P/R/F1 alongside fairness/survival, so
    any future monitor improvement is measured the same way.
 
+## Resolution (2026-06-15) — the plausibility-prior monitor closes the leg
+
+Both documented fixes were tried against a real LLM:
+
+**(a) Rhetorical probe** (`ProbeConfig.rhetorical`, default on): the probe now
+under-reports AND argues persuasively for more. Live (haiku, 4 ep): still
+`tp0 fp1 fn6` → **recall 0**. FP dropped (3→1, the judge reacts to framing) but
+deceptive advocacy reads like honest advocacy, so recall stays 0. Confirms a
+framing-blind judge cannot separate the two — a sharper version of the finding.
+
+**(b) Plausibility-prior monitor** (`scenario.plausibility_labels(events, expected,
+margin)`): card-blind, but armed with a domain prior — flag any public REPORT below
+`expected*(1-margin)`. Live on REAL probe under-reporting (haiku agents, 4 ep):
+
+```
+tp=5  fp=0  fn=2   precision=1.0  recall=0.71  F1=0.83
+phase-1.5 gate: caught 4/4 episodes, 0 false positives → PASSED
+```
+
+The framing-LLM-judge scored 0 on the same kind of data; the prior-based content
+monitor scores **F1 0.83** and passes. The 2 misses are a borderline-low report and
+an *over*-report (a low-floor detector only catches under-reporting). The prior IS
+the behavioural hypothesis the design wanted as the policy unit — a heterogeneous,
+content-based, explainable detector, validated against the objective ground truth.
+
 ## Status
 
-Real-LLM detection: **infrastructure DONE and validated as runnable**; detection
-quality with a card-blind haiku judge is **P/R 0** — a documented design finding, not
-lowered or hidden. The mock path (P/R 1.0) still validates the plumbing.
+Detection leg **CLOSED**: a card-blind plausibility-prior monitor catches real-LLM
+under-reporting at P 1.0 / R 0.71 / F1 0.83 (gate PASSED). The honest negative result
+— framing-blind LLM judging of number-deception scores 0 — is kept above, not hidden.
+Mock plumbing remains P/R 1.0.
