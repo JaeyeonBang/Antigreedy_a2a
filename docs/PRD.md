@@ -224,3 +224,18 @@ All three demo features are built, tested, and pushed (`origin/main`). 131 tests
   under `runs/`; `GET /history` lists past runs, `GET /history/{id}` returns the
   replayable log; the History panel re-opens a run by re-feeding events through
   the same renderer. Survives server restart.
+
+### v0.2 follow-up — conversation visibility + governance presets (2026-06-16)
+
+Two PRD requirements that the first v0.2 pass had not reflected, now shipped:
+
+- **Conversation visibility (PRD §2 "visualize conversations", §6 FR4).** Turn
+  events were token-counts only — the actual text was invisible. Turn events now
+  carry the prompt the agent saw, its original output, and the delivered text
+  (capped). Each dashboard feed row is clickable → expands to PROMPT / AGENT
+  OUTPUT / DELIVERED with an original→delivered diff, so you can see exactly what
+  a greedy agent tried to say and what the policy let through. (meeting + probe.)
+- **Named governance presets (PRD §4 "swap policy Y→Z live").** Only a toggle +
+  editor existed. A header dropdown now offers None / Airtime quota / Strict
+  quota; selecting one applies it to the governed side (`/presets`,
+  `/presets/{name}/apply`). Browser e2e covers both (7/7).
