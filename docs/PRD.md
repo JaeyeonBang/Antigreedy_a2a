@@ -239,3 +239,18 @@ Two PRD requirements that the first v0.2 pass had not reflected, now shipped:
   editor existed. A header dropdown now offers None / Airtime quota / Strict
   quota; selecting one applies it to the governed side (`/presets`,
   `/presets/{name}/apply`). Browser e2e covers both (7/7).
+
+### v0.2 follow-up 2 — overnight auto-plan batch (2026-06-16)
+
+Korean UI pass + configurability + measurement + reproducibility. Deception
+confirmed prompt-driven (probe gets a secret DECEIVE/under-report instruction).
+
+- **한글화 + 가시성**:全 dashboard copy Korean; larger fonts, graph/feed sizes.
+- **에이전트 수 (2–8) · 커먼즈 예산 (400/1200/3000)**: WS `n_agents`/`budget`,
+  clamped, per-run via `dataclasses.replace` — dial difficulty live.
+- **공정성 메트릭 (PRD §8)**: `episode_end` carries Jain (delivered/attempted) +
+  per-agent shares + top_share; per-panel readout with share bars.
+- **대화 가시화**: turn rows show prompt / agent output / delivered (diff).
+- **실험 기록 확장**: per-run fairness in the list, two-run diff table, JSON export.
+
+All TDD; Python 151 passed/1 skip, browser e2e 12/12. origin/main = b6ac95b+.

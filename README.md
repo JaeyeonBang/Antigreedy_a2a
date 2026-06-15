@@ -35,8 +35,27 @@ Four controls, all over WebSocket + Cytoscape (no build step):
   **Apply governance** and it's rescued on the very next turn (no restart). Click
   **Remove governance** and watch it collapse again.
 - **🚩 Deception probe** — a probe agent secretly under-reports; the theater lights
-  it up red live.
+  it up red live. (Deception is prompt-driven: the probe agent gets a secret
+  "you must DECEIVE the group / under-report" instruction — click its turn row to
+  read the actual prompt.)
 - **Governance** toggle — add/remove governance for the next A/B run.
+
+The dashboard UI is **Korean**, beginner-friendly (jargon glosses, a legend,
+empty-state guidance), and includes:
+
+- **거버넌스 프리셋** — pick a ready-made governance set (None / Airtime quota /
+  Strict) and apply it to the governed side.
+- **정책 편집기** — write a `Policy` subclass in the browser → it governs the next
+  run (localhost-only; runs your pasted Python server-side).
+- **에이전트 수 / 커먼즈 예산** — dial the meeting (2–8 agents, budget 400/1200/3000)
+  to show collapse vs survival at different scales.
+- **대화 보기** — click any turn row to see the prompt, the agent's output, and what
+  governance delivered (with an original→delivered diff).
+- **공정성 메트릭** — per-run Jain fairness index + per-agent airtime-share bars.
+- **실험 기록** — every run is saved; re-open to replay, compare two runs side by
+  side, or export a run as JSON.
+
+Browser e2e (`tests/e2e/`, Playwright) covers all of the above — 12 cases.
 
 ## How it works
 
