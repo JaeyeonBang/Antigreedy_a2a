@@ -69,6 +69,35 @@
   .feed { margin-top:10px; max-height:160px; overflow:auto; font:12px/1.45 ui-monospace,monospace; }
   .feed div { padding:2px 0; border-bottom:1px solid #1b2129; }
   .v-allow{color:var(--ok);} .v-modify{color:var(--warn);} .v-deny{color:var(--bad);} .v-delay{color:#a371f7;}
+  /* policy editor */
+  .editor { margin-top:14px; background:#0d1117; border:1px solid #21262d; border-radius:8px; }
+  .editor > summary { cursor:pointer; padding:10px 12px; font-weight:600; color:var(--ink);
+                      list-style:none; user-select:none; }
+  .editor > summary::-webkit-details-marker { display:none; }
+  .editor[open] > summary { border-bottom:1px solid #21262d; }
+  .ed-warn { margin:10px 12px; padding:8px 10px; font-size:12px; color:#ffd9a8;
+             background:#3a2a12; border:1px solid #6b4b15; border-radius:6px; }
+  .ed-help { margin:6px 12px 10px; font-size:12px; color:var(--mut); max-width:95ch; }
+  .ed-help code { background:#161b22; padding:1px 5px; border-radius:4px; color:#cdd9e5; }
+  .ed-grid { display:grid; grid-template-columns:2fr 1fr; gap:12px; padding:0 12px 12px; }
+  .ed-left { display:flex; flex-direction:column; gap:8px; }
+  #pol-name { background:#161b22; border:1px solid #30363d; color:var(--ink);
+              border-radius:6px; padding:7px 9px; font:12px ui-monospace,monospace; }
+  #pol-source { background:#0b0e13; border:1px solid #30363d; color:#e6edf3; border-radius:6px;
+                padding:9px; font:12px/1.5 ui-monospace,monospace; resize:vertical; width:100%; }
+  .ed-actions { display:flex; align-items:center; gap:10px; }
+  #pol-save { background:#238636; color:#fff; border:0; padding:7px 14px; border-radius:6px;
+              cursor:pointer; font-weight:600; }
+  .ed-status { font-size:12px; color:var(--mut); }
+  .ed-status.ok { color:var(--ok); } .ed-status.err { color:var(--bad); }
+  .ed-listhdr { font-size:11px; color:var(--mut); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .ed-list .item { display:flex; align-items:center; justify-content:space-between; gap:8px;
+                   padding:6px 8px; background:#161b22; border:1px solid #21262d; border-radius:6px;
+                   margin-bottom:6px; font:12px ui-monospace,monospace; }
+  .ed-list .item .fn { cursor:pointer; color:#cdd9e5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ed-list .item .fn:hover { color:#fff; text-decoration:underline; }
+  .ed-list .item .del { cursor:pointer; color:var(--mut); border:0; background:none; font-size:14px; }
+  .ed-list .item .del:hover { color:var(--bad); }
 </style>
 </head>
 <body>
@@ -127,6 +156,49 @@
     <span class="grp">bar = commons left
       (<span style="color:var(--ok)">full</span> → <span style="color:var(--warn)">low</span> → <span style="color:var(--bad)">empty</span>)</span>
   </div>
+
+  <details class="editor" id="editor">
+    <summary>✏️ Policy editor — write a governance rule, apply it live</summary>
+    <div class="ed-warn" id="ed-warn">
+      ⚠️ <b>Localhost only.</b> Saving runs <b>your pasted Python</b> on this machine as a
+      governance policy. Safe on your own laptop for a demo — never expose this server publicly.
+    </div>
+    <p class="ed-help">
+      Write a <code>Policy</code> subclass (one per file). Click <b>Save policy</b>, then press
+      <b>▶ Run A/B</b> or <b>🔴 Live</b> — the governed side now obeys your rule. This is the
+      "policies are just <code>.py</code>" thesis, live: an LLM could author this same file.
+    </p>
+    <div class="ed-grid">
+      <div class="ed-left">
+        <input id="pol-name" placeholder="filename, e.g. 50_my_rule.py" value="50_my_rule.py"/>
+        <textarea id="pol-source" spellcheck="false" rows="14">from antigreedy.governance.policy import Policy
+
+
+class MyRule(Policy):
+    name = "my_rule"
+    priority = 5  # lower runs first; DENY/DELAY short-circuit the chain
+
+    def evaluate(self, action, state, history):
+        # action.agent_id, action.token_estimate, action.payload["text"]
+        # state.airtime_delivered[agent] = tokens spoken so far
+        # return self.allow() / self.deny(reason=...) /
+        #        self.modify({"text": "..."}, reason=...) / self.delay(2.0)
+        spoken = state.airtime_delivered.get(action.agent_id, 0)
+        if spoken > 120:  # this agent has hogged the floor — trim its turn
+            return self.modify({"text": "(trimmed by my_rule)"}, reason="airtime cap")
+        return self.allow(reason="under cap")
+</textarea>
+        <div class="ed-actions">
+          <button id="pol-save">Save policy</button>
+          <span class="ed-status" id="pol-status"></span>
+        </div>
+      </div>
+      <div class="ed-right">
+        <div class="ed-listhdr">Active policies (governed side)</div>
+        <div id="pol-list" class="ed-list"></div>
+      </div>
+    </div>
+  </details>
 </header>
 <div class="wrap">
   <section class="panel baseline" id="p-baseline">
@@ -262,6 +334,51 @@ document.getElementById('govBtn').onclick=()=>{
 document.getElementById('run').onclick=()=>startRun('ab');
 document.getElementById('live').onclick=()=>startRun('live');
 document.getElementById('probe').onclick=()=>startRun('probe');
+
+// ---- policy editor (E2): write a .py → governs the next run --------------
+function edStatus(msg, cls){ const s=document.getElementById('pol-status');
+  s.textContent=msg; s.className='ed-status'+(cls?' '+cls:''); }
+function renderPolicies(list){
+  const box=document.getElementById('pol-list'); box.innerHTML='';
+  (list||[]).forEach(p=>{
+    const row=document.createElement('div'); row.className='item';
+    const fn=document.createElement('span'); fn.className='fn'; fn.textContent=p.filename;
+    fn.title='Load into the editor'; fn.onclick=()=>{
+      document.getElementById('pol-name').value=p.filename;
+      document.getElementById('pol-source').value=p.source; };
+    const del=document.createElement('button'); del.className='del'; del.textContent='✕';
+    del.title='Delete'; del.onclick=()=>delPolicy(p.filename);
+    row.appendChild(fn); row.appendChild(del); box.appendChild(row);
+  });
+}
+async function loadPolicies(){
+  try{ const r=await fetch('/policies'); const j=await r.json();
+    renderPolicies(j.policies);
+    if(!j.editable){ document.getElementById('pol-save').disabled=true;
+      edStatus('editor disabled on this server','err'); }
+  }catch(e){ /* editor optional */ }
+}
+async function savePolicy(){
+  const filename=document.getElementById('pol-name').value.trim();
+  const source=document.getElementById('pol-source').value;
+  edStatus('saving…');
+  try{
+    const r=await fetch('/policies',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({filename, source})});
+    const j=await r.json();
+    if(!r.ok){ edStatus(j.error||'save failed','err'); return; }
+    renderPolicies(j.policies);
+    edStatus('saved ✓ — press ▶ Run A/B or 🔴 Live to apply','ok');
+  }catch(e){ edStatus('network error','err'); }
+}
+async function delPolicy(filename){
+  try{ const r=await fetch('/policies/'+encodeURIComponent(filename),{method:'DELETE'});
+    const j=await r.json(); renderPolicies(j.policies);
+    edStatus('removed '+filename,'ok');
+  }catch(e){ edStatus('delete failed','err'); }
+}
+document.getElementById('pol-save').onclick=savePolicy;
+loadPolicies();
 </script>
 </body>
 </html>

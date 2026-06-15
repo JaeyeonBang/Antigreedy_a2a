@@ -10,12 +10,14 @@ what run_ab emits (design §7 — the event log IS the product).
 from __future__ import annotations
 
 import asyncio
+import re
+import shutil
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from antigreedy.backends import (
     LLMBackend, MockBackend, make_meeting_script, make_probe_script,
@@ -27,6 +29,25 @@ from antigreedy.scenario.meeting import MeetingConfig, run_meeting
 
 REPO_POLICIES = Path(__file__).resolve().parent.parent.parent / "policies"
 STATIC = Path(__file__).resolve().parent / "static"
+
+# Editor policy filenames: a bare name ending in .py, no path separators.
+_FNAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.py")
+_LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+def _is_local(host: str | None) -> bool:
+    """True for loopback callers. The policy editor executes user-supplied
+    Python server-side, so writes are gated to the presenter's own machine."""
+    return host is None or host in _LOCAL_HOSTS
+
+
+def _safe_filename(name: str) -> bool:
+    return "/" not in name and ".." not in name and bool(_FNAME_RE.fullmatch(name))
+
+
+def _list_policies(editor_dir: Path) -> list[dict[str, str]]:
+    return [{"filename": p.name, "source": p.read_text(encoding="utf-8")}
+            for p in sorted(editor_dir.glob("*.py"))]
 
 
 def _default_backend() -> LLMBackend:
@@ -46,14 +67,68 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                backend_factory: Callable[[], LLMBackend] = _default_backend,
                probe_backend_factory: Callable[[], LLMBackend] = _default_probe_backend,
                live_backend_factory: Callable[[], LLMBackend] = _default_live_backend,
-               cfg: ABConfig | None = None) -> FastAPI:
+               cfg: ABConfig | None = None,
+               editor_enabled: bool = True,
+               localhost_only: bool = True) -> FastAPI:
     app = FastAPI(title="Antigreedy A/B Theater")
     baseline_dir = Path(tempfile.mkdtemp(prefix="ag_baseline_"))  # empty = ungoverned
+    # Live editor dir: a writable COPY of the repo policy set. The governed arm
+    # reads from here, so a policy pasted in the UI governs the next run without
+    # touching the committed `policies/` dir.
+    editor_dir = Path(tempfile.mkdtemp(prefix="ag_editor_"))
+    for src in sorted(Path(policies_dir).glob("*.py")):
+        shutil.copy2(src, editor_dir / src.name)
+    governed_policies_dir = editor_dir
     html = (STATIC / "theater.html").read_text(encoding="utf-8")
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> str:
         return html
+
+    @app.get("/policies")
+    async def list_policies() -> dict:
+        return {"editable": editor_enabled, "localhost_only": localhost_only,
+                "policies": _list_policies(editor_dir)}
+
+    def _guard(request: Request) -> JSONResponse | None:
+        if not editor_enabled:
+            return JSONResponse({"error": "editor disabled"}, status_code=403)
+        host = request.client.host if request.client else None
+        if localhost_only and not _is_local(host):
+            return JSONResponse({"error": "policy editor is localhost-only"},
+                                status_code=403)
+        return None
+
+    @app.post("/policies")
+    async def write_policy(request: Request) -> JSONResponse:
+        denied = _guard(request)
+        if denied is not None:
+            return denied
+        body = await request.json()
+        filename = str(body.get("filename", ""))
+        source = str(body.get("source", ""))
+        if not _safe_filename(filename):
+            return JSONResponse({"error": "filename must be a bare *.py name"},
+                                status_code=400)
+        try:
+            compile(source, filename, "exec")  # reject syntax errors before writing
+        except SyntaxError as exc:
+            return JSONResponse({"error": f"syntax error: {exc.msg} (line {exc.lineno})"},
+                                status_code=400)
+        (editor_dir / filename).write_text(source, encoding="utf-8")
+        return JSONResponse({"ok": True, "policies": _list_policies(editor_dir)})
+
+    @app.delete("/policies/{filename}")
+    async def delete_policy(filename: str, request: Request) -> JSONResponse:
+        denied = _guard(request)
+        if denied is not None:
+            return denied
+        if not _safe_filename(filename):
+            return JSONResponse({"error": "bad filename"}, status_code=400)
+        target = editor_dir / filename
+        if target.exists():
+            target.unlink()
+        return JSONResponse({"ok": True, "policies": _list_policies(editor_dir)})
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
@@ -73,15 +148,15 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
             return
         queue: asyncio.Queue = asyncio.Queue()
         if mode == "live":
-            await _run_live(websocket, queue, policies_dir, baseline_dir,
+            await _run_live(websocket, queue, governed_policies_dir, baseline_dir,
                             live_backend_factory(), cfg or ABConfig())
             return
         if mode == "probe":
             task = asyncio.create_task(run_probe(
-                policies_dir, backend=probe_backend_factory(),
+                governed_policies_dir, backend=probe_backend_factory(),
                 sink=queue.put_nowait, cfg=cfg or ABConfig()))
         else:
-            governed_dir = policies_dir if governed else baseline_dir
+            governed_dir = governed_policies_dir if governed else baseline_dir
             task = asyncio.create_task(run_ab(
                 baseline_dir, governed_dir, backend=backend_factory(),
                 sink=queue.put_nowait, cfg=cfg or ABConfig()))
