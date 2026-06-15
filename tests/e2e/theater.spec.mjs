@@ -179,6 +179,22 @@ test.describe('History diff — compare two runs', () => {
   });
 });
 
+test.describe('History export — download a run as JSON', () => {
+  test('a history row shows fairness and exports the run as JSON', async ({ page }) => {
+    await page.goto('/');
+    await runAB(page);
+    await page.locator('#history > summary').click();
+    await page.locator('#hist-refresh').click();
+    const firstRow = page.locator('#hist-list .item').first();
+    await expect(firstRow.locator('.fn')).toContainText('공정성');   // fairness in the list
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      firstRow.locator('.del').click(),                              // the ⬇ export button
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.json$/);
+  });
+});
+
 test.describe('Agent count — configurable number of agents', () => {
   test('selecting 3 agents runs a 3-agent meeting (no agent D)', async ({ page }) => {
     await page.goto('/');

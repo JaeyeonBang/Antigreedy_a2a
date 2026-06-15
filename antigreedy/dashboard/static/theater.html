@@ -543,6 +543,18 @@ loadPresets();
 
 // ---- 실험 기록 (E3): 지난 런 목록, 다시 열어 재생 -----------------------
 function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+outKo(v)).join('  '); }
+function fmtFair(f){ if(!f) return '';
+  const parts=Object.entries(f).filter(([k,v])=>typeof v==='number').map(([k,v])=>`${k} ${v.toFixed(2)}`);
+  return parts.length?'  · 공정성 '+parts.join('/'):''; }
+async function downloadRun(id){
+  try{
+    const rec=await (await fetch('/history/'+encodeURIComponent(id))).json();
+    const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=id+'.json';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }catch(e){ document.getElementById('hist-status').textContent='내보내기 실패'; }
+}
 const histPicked=new Set();
 function renderHistory(runs){
   const box=document.getElementById('hist-list'); box.innerHTML='';
@@ -557,10 +569,12 @@ function renderHistory(runs){
       if(cb.checked) histPicked.add(r.id); else histPicked.delete(r.id);
       syncCompareBtn(); };
     const fn=document.createElement('span'); fn.className='fn';
-    fn.textContent=`${r.created_iso} · ${r.mode} · ${fmtOutcomes(r.outcomes)}`
+    fn.textContent=`${r.created_iso} · ${r.mode} · ${fmtOutcomes(r.outcomes)}${fmtFair(r.fairness)}`
       +(r.deceptions&&r.deceptions.length?'  🚩'+r.deceptions.join(','):'');
     fn.title='다시 열어 재생'; fn.onclick=()=>replayRun(r.id);
-    row.appendChild(cb); row.appendChild(fn); box.appendChild(row);
+    const dl=document.createElement('button'); dl.className='del'; dl.textContent='⬇';
+    dl.title='이 런을 JSON으로 내보내기'; dl.onclick=(e)=>{ e.stopPropagation(); downloadRun(r.id); };
+    row.appendChild(cb); row.appendChild(fn); row.appendChild(dl); box.appendChild(row);
   });
 }
 function syncCompareBtn(){

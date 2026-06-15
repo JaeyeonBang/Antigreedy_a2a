@@ -14,7 +14,8 @@ def _events(condition, outcome):
         {"type": "turn", "condition": condition,
          "data": {"agent_id": "A", "verdict": "modify"}, "policy_set_hash": "h1"},
         {"type": "episode_end", "condition": condition,
-         "data": {"outcome": outcome, "commons_left": 5}},
+         "data": {"outcome": outcome, "commons_left": 5,
+                  "metrics": {"jain_delivered": 0.9 if condition == "governed" else 0.4}}},
     ]
 
 
@@ -34,6 +35,14 @@ def test_save_returns_summary_and_persists_full_record():
     # full record (with events) is retrievable by id
     full = s.get(rec["id"])
     assert full is not None and full["events"] == events
+
+
+def test_save_extracts_fairness_per_condition():
+    s = _store()
+    rec = s.save(mode="ab", events=_events("baseline", "exhausted") + _events("governed", "survived"))
+    assert rec["fairness"] == {"baseline": 0.4, "governed": 0.9}
+    # the summary (list view) keeps fairness so the logbook is informative
+    assert s.list()[0]["fairness"]["governed"] == 0.9
 
 
 def test_list_is_newest_first_and_omits_events():

@@ -21,11 +21,14 @@ _COUNTER = {"n": 0}
 def _derive(mode: str, events: list[dict[str, Any]]) -> dict[str, Any]:
     outcomes = {e["condition"]: e["data"].get("outcome")
                 for e in events if e.get("type") == "episode_end" and e.get("condition")}
+    fairness = {e["condition"]: e["data"]["metrics"].get("jain_delivered")
+                for e in events if e.get("type") == "episode_end" and e.get("condition")
+                and isinstance(e["data"].get("metrics"), dict)}
     psh = next((e["policy_set_hash"] for e in events if e.get("policy_set_hash")), "")
     n_turns = sum(1 for e in events if e.get("type") == "turn")
     deceptions = sorted({e["data"].get("agent_id") for e in events
                          if e.get("type") == "ground_truth" and e["data"].get("deceptive")})
-    return {"mode": mode, "outcomes": outcomes, "policy_set_hash": psh,
+    return {"mode": mode, "outcomes": outcomes, "fairness": fairness, "policy_set_hash": psh,
             "n_turns": n_turns, "n_events": len(events), "deceptions": deceptions}
 
 
