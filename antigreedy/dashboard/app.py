@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from antigreedy.backends import (
     LLMBackend, MockBackend, make_meeting_script, make_probe_script,
 )
+from antigreedy.dashboard.history import HistoryStore
 from antigreedy.dashboard.live import make_live
 from antigreedy.dashboard.runner import ABConfig, run_ab, run_probe
 from antigreedy.events import EventStream
@@ -29,6 +30,7 @@ from antigreedy.scenario.meeting import MeetingConfig, run_meeting
 
 REPO_POLICIES = Path(__file__).resolve().parent.parent.parent / "policies"
 STATIC = Path(__file__).resolve().parent / "static"
+DEFAULT_HISTORY = Path(__file__).resolve().parent.parent.parent / "runs" / "dashboard"
 
 # Editor policy filenames: a bare name ending in .py, no path separators.
 _FNAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.py")
@@ -69,8 +71,10 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                live_backend_factory: Callable[[], LLMBackend] = _default_live_backend,
                cfg: ABConfig | None = None,
                editor_enabled: bool = True,
-               localhost_only: bool = True) -> FastAPI:
+               localhost_only: bool = True,
+               history_dir: Path | None = None) -> FastAPI:
     app = FastAPI(title="Antigreedy A/B Theater")
+    history = HistoryStore(history_dir or DEFAULT_HISTORY)
     baseline_dir = Path(tempfile.mkdtemp(prefix="ag_baseline_"))  # empty = ungoverned
     # Live editor dir: a writable COPY of the repo policy set. The governed arm
     # reads from here, so a policy pasted in the UI governs the next run without
@@ -130,6 +134,17 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
             target.unlink()
         return JSONResponse({"ok": True, "policies": _list_policies(editor_dir)})
 
+    @app.get("/history")
+    async def history_list() -> dict:
+        return {"runs": history.list()}
+
+    @app.get("/history/{run_id}")
+    async def history_get(run_id: str) -> JSONResponse:
+        rec = history.get(run_id)
+        if rec is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return JSONResponse(rec)
+
     @app.websocket("/ws")
     async def ws(websocket: WebSocket) -> None:
         await websocket.accept()
@@ -147,19 +162,32 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         except WebSocketDisconnect:
             return
         queue: asyncio.Queue = asyncio.Queue()
+        collected: list[dict] = []  # E3: accumulate the event log to persist the run
+
+        def sink(ev: dict) -> None:
+            collected.append(ev)
+            queue.put_nowait(ev)
+
+        def persist() -> None:
+            try:
+                history.save(mode=mode, events=collected)
+            except OSError:
+                pass  # history is best-effort; never break the live stream
+
         if mode == "live":
             await _run_live(websocket, queue, governed_policies_dir, baseline_dir,
-                            live_backend_factory(), cfg or ABConfig())
+                            live_backend_factory(), cfg or ABConfig(), sink=sink)
+            persist()
             return
         if mode == "probe":
             task = asyncio.create_task(run_probe(
                 governed_policies_dir, backend=probe_backend_factory(),
-                sink=queue.put_nowait, cfg=cfg or ABConfig()))
+                sink=sink, cfg=cfg or ABConfig()))
         else:
             governed_dir = governed_policies_dir if governed else baseline_dir
             task = asyncio.create_task(run_ab(
                 baseline_dir, governed_dir, backend=backend_factory(),
-                sink=queue.put_nowait, cfg=cfg or ABConfig()))
+                sink=sink, cfg=cfg or ABConfig()))
         try:
             while not (task.done() and queue.empty()):
                 try:
@@ -168,6 +196,7 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                     continue
                 await websocket.send_json(ev)
             await task  # surface any run error
+            persist()
             await websocket.send_json({"type": "done"})
         except WebSocketDisconnect:
             task.cancel()
@@ -177,12 +206,13 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
 
 async def _run_live(websocket: WebSocket, queue: "asyncio.Queue",
                     policies_dir: Path, baseline_dir: Path,
-                    backend: LLMBackend, cfg: ABConfig) -> None:
+                    backend: LLMBackend, cfg: ABConfig,
+                    sink: Callable[[dict], None] | None = None) -> None:
     """Stream one paced meeting while concurrently accepting {"action": ...}
     control messages that flip governance ON/OFF live (one-touch apply/remove)."""
     lip, src, state = make_live(policies_dir, baseline_dir, backend,
                                 max_tokens=cfg.live_max_tokens, delay=cfg.live_delay)
-    stream = EventStream(cfg.run_id, "governed", 0, sink=queue.put_nowait)
+    stream = EventStream(cfg.run_id, "governed", 0, sink=sink or queue.put_nowait)
     mcfg = MeetingConfig(run_id=cfg.run_id, condition="governed", episode=0,
                          agents=list(cfg.agents),
                          personas={a: "" for a in cfg.agents},

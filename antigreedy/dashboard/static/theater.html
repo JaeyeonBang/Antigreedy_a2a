@@ -199,6 +199,19 @@ class MyRule(Policy):
       </div>
     </div>
   </details>
+
+  <details class="editor" id="history">
+    <summary>🕘 History — past experiments (click one to re-open &amp; replay)</summary>
+    <p class="ed-help">
+      Every run you start is saved (its config + full event log). Click a row to
+      replay it into the panels — turns a one-shot demo into a reproducible logbook.
+    </p>
+    <div class="ed-actions" style="padding:0 12px 6px">
+      <button id="hist-refresh">Refresh</button>
+      <span class="ed-status" id="hist-status"></span>
+    </div>
+    <div id="hist-list" class="ed-list" style="padding:0 12px 12px"></div>
+  </details>
 </header>
 <div class="wrap">
   <section class="panel baseline" id="p-baseline">
@@ -317,7 +330,7 @@ function startRun(mode){
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
   ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
-    if(ev.type==='done'){ ws.close(); restoreBtns(); endLive(); return; }
+    if(ev.type==='done'){ ws.close(); restoreBtns(); endLive(); loadHistory(); return; }
     handle(ev); };
   ws.onerror=()=>{ restoreBtns(); endLive(); };
   if(mode==='live'){ liveWs=ws; const g=document.getElementById('govBtn');
@@ -379,6 +392,41 @@ async function delPolicy(filename){
 }
 document.getElementById('pol-save').onclick=savePolicy;
 loadPolicies();
+
+// ---- experiment history (E3): list past runs, re-open to replay ---------
+function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+v).join('  '); }
+function renderHistory(runs){
+  const box=document.getElementById('hist-list'); box.innerHTML='';
+  if(!runs || !runs.length){
+    box.innerHTML='<span class="ed-status">no runs yet — press ▶ Run A/B, 🔴 Live, or 🚩 Probe</span>'; return; }
+  runs.forEach(r=>{
+    const row=document.createElement('div'); row.className='item';
+    const fn=document.createElement('span'); fn.className='fn';
+    fn.textContent=`${r.created_iso} · ${r.mode} · ${fmtOutcomes(r.outcomes)}`
+      +(r.deceptions&&r.deceptions.length?'  🚩'+r.deceptions.join(','):'');
+    fn.title='Re-open & replay this run'; fn.onclick=()=>replayRun(r.id);
+    row.appendChild(fn); box.appendChild(row);
+  });
+}
+async function loadHistory(){
+  try{ const r=await fetch('/history'); renderHistory((await r.json()).runs); }catch(e){}
+}
+async function replayRun(id){
+  try{
+    const r=await fetch('/history/'+encodeURIComponent(id)); const rec=await r.json();
+    if(!rec.events) return;
+    const conds=[...new Set(rec.events.map(e=>e.condition).filter(Boolean))];
+    ['baseline','governed'].forEach(c=> conds.includes(c) ? reset(c) : idle(c,'(no data this run)'));
+    document.querySelector('#p-baseline h2').textContent='Baseline · replay';
+    document.querySelector('#p-governed h2').textContent='Governed · replay';
+    rec.events.forEach(handle);
+    document.getElementById('hist-status').textContent='replaying '+id;
+    document.getElementById('hist-status').className='ed-status ok';
+  }catch(e){ document.getElementById('hist-status').textContent='replay failed';
+    document.getElementById('hist-status').className='ed-status err'; }
+}
+document.getElementById('hist-refresh').onclick=loadHistory;
+loadHistory();
 </script>
 </body>
 </html>
