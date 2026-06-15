@@ -75,21 +75,22 @@ def test_index_serves_html():
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     body = r.text.lower()
-    assert "baseline" in body and "governed" in body  # the two panels
-    assert "governance" in body  # the toggle control
+    assert "baseline" in body and "governed" in body  # the two panels (ids/classes)
+    assert "거버넌스" in body  # the toggle control (Korean UI)
 
 
 def test_index_is_beginner_friendly():
     """E1: a first-time viewer can use every feature without docs — jargon
-    glosses, a legend, empty-state guidance, and per-button explanations."""
+    glosses, a legend, empty-state guidance, and per-button explanations.
+    The dashboard copy is Korean."""
     body = TestClient(_app()).get("/").text.lower()
-    # jargon glosses
-    assert "shared token budget" in body          # commons explained
-    assert "airtime" in body                       # airtime explained
+    # jargon glosses (Korean)
+    assert "공유 토큰 예산" in body                 # commons explained
+    assert "발언량" in body                         # airtime explained
     # legend mapping the visuals (node colour = verdict, size = airtime)
-    assert "legend" in body
-    assert "allow" in body and "modify" in body and "deny" in body
+    assert "범례" in body
+    assert "allow" in body and "modify" in body and "deny" in body  # verdict tokens kept
     # empty-state guidance before any run
-    assert "to start" in body or "press" in body
-    # per-button "what this does" help text (beyond the bare button labels)
-    assert "what this does" in body or "side-by-side" in body
+    assert "시작" in body
+    # per-button help text (beyond the bare button labels)
+    assert "나란히" in body or "하는 일" in body

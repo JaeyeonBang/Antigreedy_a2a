@@ -14,6 +14,7 @@ import re
 import shutil
 import tempfile
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -35,6 +36,15 @@ DEFAULT_HISTORY = Path(__file__).resolve().parent.parent.parent / "runs" / "dash
 # Editor policy filenames: a bare name ending in .py, no path separators.
 _FNAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.py")
 _LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+_AGENT_LETTERS = "ABCDEFGH"  # the meeting supports 2..8 agents
+
+
+def _agents(n: int) -> list[str]:
+    """Agent ids A.. for a meeting of N participants, clamped to [2, 8]."""
+    n = max(2, min(len(_AGENT_LETTERS), int(n)))
+    return list(_AGENT_LETTERS[:n])
 
 
 def _is_local(host: str | None) -> bool:
@@ -195,11 +205,14 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         # governance by pointing the "governed" arm at the empty baseline policy
         # set, so both panels collapse — a live add/remove-governance demo.
         mode, governed = "ab", True
+        run_cfg = cfg or ABConfig()
         try:
             msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.5)
             if isinstance(msg, dict):
                 mode = msg.get("mode", "ab")
                 governed = bool(msg.get("governed", True))
+                if msg.get("n_agents") is not None:  # configurable agent count
+                    run_cfg = replace(run_cfg, agents=_agents(msg["n_agents"]))
         except asyncio.TimeoutError:
             pass
         except WebSocketDisconnect:
@@ -219,18 +232,18 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
 
         if mode == "live":
             await _run_live(websocket, queue, governed_policies_dir, baseline_dir,
-                            live_backend_factory(), cfg or ABConfig(), sink=sink)
+                            live_backend_factory(), run_cfg, sink=sink)
             persist()
             return
         if mode == "probe":
             task = asyncio.create_task(run_probe(
                 governed_policies_dir, backend=probe_backend_factory(),
-                sink=sink, cfg=cfg or ABConfig()))
+                sink=sink, cfg=run_cfg))
         else:
             governed_dir = governed_policies_dir if governed else baseline_dir
             task = asyncio.create_task(run_ab(
                 baseline_dir, governed_dir, backend=backend_factory(),
-                sink=sink, cfg=cfg or ABConfig()))
+                sink=sink, cfg=run_cfg))
         try:
             while not (task.done() and queue.empty()):
                 try:

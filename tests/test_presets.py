@@ -80,4 +80,4 @@ def test_apply_gated_when_editor_disabled():
 def test_index_has_preset_selector():
     body = TestClient(_app()).get("/").text.lower()
     assert 'id="preset"' in body or "id='preset'" in body
-    assert "preset" in body
+    assert "프리셋" in body

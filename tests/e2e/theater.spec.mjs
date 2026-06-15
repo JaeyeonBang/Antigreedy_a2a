@@ -27,26 +27,26 @@ test.describe('E1 — beginner-friendly comprehension UX', () => {
   test('glossary, legend, empty-state and per-button help are visible', async ({ page }) => {
     await page.goto('/');
 
-    // jargon glosses (commons / airtime / verdict)
-    await expect(page.getByText('the shared token budget', { exact: false })).toBeVisible();
-    await expect(page.locator('.gloss')).toContainText('Airtime');
-    await expect(page.locator('.gloss')).toContainText('Verdict');
+    // jargon glosses (commons / airtime / verdict) — Korean copy
+    await expect(page.getByText('공유 토큰 예산', { exact: false }).first()).toBeVisible();
+    await expect(page.locator('.gloss')).toContainText('발언량');
+    await expect(page.locator('.gloss')).toContainText('판정');
 
     // legend maps the visuals
     const legend = page.locator('.legend');
-    await expect(legend).toContainText('Legend');
+    await expect(legend).toContainText('범례');
     await expect(legend).toContainText('allow');
     await expect(legend).toContainText('modify');
     await expect(legend).toContainText('deny');
-    await expect(legend).toContainText('airtime');
+    await expect(legend).toContainText('발언량');
 
     // empty-state guidance before any run
-    await expect(page.locator('#g-baseline .empty')).toContainText('Run A/B');
+    await expect(page.locator('#g-baseline .empty')).toContainText('시작');
     await expect(page.locator('#g-governed .empty')).toBeVisible();
 
-    // per-button "what this does" help
-    await expect(page.locator('.controls')).toContainText('What this does');
-    await expect(page.locator('.controls')).toContainText('side-by-side');
+    // per-button help text
+    await expect(page.locator('.controls')).toContainText('하는 일');
+    await expect(page.locator('.explain')).toContainText('나란히');
   });
 });
 
@@ -54,7 +54,7 @@ test.describe('E2 — in-dashboard policy editor (the live wow)', () => {
   test('localhost warning + seeded policy list are shown', async ({ page }) => {
     await page.goto('/');
     await page.locator('#editor > summary').click();          // expand the editor
-    await expect(page.locator('#ed-warn')).toContainText('Localhost only');
+    await expect(page.locator('#ed-warn')).toContainText('localhost');
     // seeded repo policies appear in the active list
     await expect(page.locator('#pol-list')).toContainText('10_airtime_quota.py');
   });
@@ -99,9 +99,9 @@ test.describe('Conversation view — see each prompt + output + delivered', () =
     await page.locator('#feed-governed .turnrow').first().click();
     const detail = page.locator('#feed-governed .turndetail').first();
     await expect(detail).toBeVisible();
-    await expect(detail).toContainText('PROMPT');
-    await expect(detail).toContainText('AGENT OUTPUT');
-    await expect(detail).toContainText('DELIVERED');
+    await expect(detail).toContainText('프롬프트');
+    await expect(detail).toContainText('에이전트 출력');
+    await expect(detail).toContainText('전달됨');
   });
 });
 
@@ -141,10 +141,23 @@ test.describe('E3 — experiment history (persist + replay)', () => {
 
     // re-open → replay re-renders the panels
     await firstRow.click();
-    await expect(page.locator('#p-governed h2')).toContainText('replay');
-    await expect(page.locator('#hist-status')).toContainText('replaying');
+    await expect(page.locator('#p-governed h2')).toContainText('재생');
+    await expect(page.locator('#hist-status')).toContainText('재생');
     // replayed event log re-rendered nodes into the governed graph
     // (Cytoscape paints several stacked <canvas> layers — assert the first)
     await expect(page.locator('#g-governed canvas').first()).toBeVisible();
+  });
+});
+
+test.describe('Agent count — configurable number of agents', () => {
+  test('selecting 3 agents runs a 3-agent meeting (no agent D)', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#agents option')).toHaveCount(7);   // 2..8
+    await expect(page.locator('#agents')).toHaveValue('4');         // default
+    await page.locator('#agents').selectOption('3');
+    await runAB(page);
+    const gov = page.locator('#feed-governed');
+    await expect(gov).toContainText('C');        // agent C spoke
+    await expect(gov).not.toContainText('D');    // no 4th agent in a 3-agent run
   });
 });

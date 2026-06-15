@@ -107,10 +107,10 @@ def test_index_has_editor_ui_with_warning():
     """The dashboard ships the editor UI inline, with the localhost-only warning
     so a presenter understands it runs their pasted Python on their machine."""
     body = TestClient(_app()).get("/").text.lower()
-    assert "policy editor" in body
-    assert "localhost" in body            # the security warning
+    assert "정책 편집기" in body
+    assert "localhost" in body            # the security warning (term kept)
     assert "id=\"pol-source\"" in body or "id='pol-source'" in body   # the textarea
-    assert "save policy" in body or "save &amp; apply" in body or "save policy" in body
+    assert "정책 저장" in body
 
 
 def test_is_local_gate():

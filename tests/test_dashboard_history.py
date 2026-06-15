@@ -52,5 +52,5 @@ def test_get_history_record_returns_replayable_events():
 
 def test_index_has_history_ui():
     body = TestClient(_app()).get("/").text.lower()
-    assert "history" in body
+    assert "실험 기록" in body
     assert 'id="hist-list"' in body or "id='hist-list'" in body

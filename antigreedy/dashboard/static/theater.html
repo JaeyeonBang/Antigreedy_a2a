@@ -1,38 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Antigreedy — A/B Theater</title>
+<title>Antigreedy — A/B 시연</title>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <style>
-  :root { --bg:#0e1116; --panel:#161b22; --ink:#e6edf3; --mut:#7d8896;
+  :root { --bg:#0e1116; --panel:#161b22; --ink:#e6edf3; --mut:#9aa6b2;
           --bad:#f85149; --ok:#3fb950; --warn:#d29922; --delay:#a371f7; --blue:#1f6feb; }
   * { box-sizing:border-box; }
-  body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:14px 20px; border-bottom:1px solid #21262d; }
+  body { margin:0; font:14.5px/1.6 system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+         background:var(--bg); color:var(--ink); }
+  header { padding:16px 22px; border-bottom:1px solid #21262d; }
   .titlerow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  header h1 { font-size:16px; margin:0; }
-  .sub { color:var(--mut); font-size:12.5px; }
-  /* one-glance explainer of what you're looking at */
-  .explain { margin:10px 0 2px; color:var(--ink); font-size:13px; max-width:90ch; }
-  .explain b { color:#cdd9e5; }
-  /* glossary chips: plain-language gloss for each piece of jargon */
-  .gloss { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 2px; }
-  .gloss .chip { background:#0d1117; border:1px solid #21262d; border-radius:8px;
-                 padding:6px 10px; font-size:12px; color:var(--mut); }
+  header h1 { font-size:18px; margin:0; }
+  .sub { color:var(--mut); font-size:13px; }
+  /* 한눈에 보는 설명 */
+  .explain { margin:12px 0 2px; color:var(--ink); font-size:13.5px; max-width:95ch; }
+  .explain b { color:#fff; }
+  /* 용어 칩 */
+  .gloss { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 2px; }
+  .gloss .chip { background:#0d1117; border:1px solid #2a3340; border-radius:8px;
+                 padding:7px 11px; font-size:12.5px; color:var(--mut); }
   .gloss .chip b { color:var(--ink); }
-  /* control bar */
-  .presetbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; }
-  .presetbar label { color:var(--ink); font-size:13px; }
-  #preset { background:#161b22; border:1px solid #30363d; color:var(--ink);
-            border-radius:6px; padding:6px 9px; font-size:13px; cursor:pointer; }
-  .presethint { color:var(--mut); font-size:11.5px; }
-  .controls { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  /* 컨트롤 바 */
+  .presetbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .presetbar label { color:var(--ink); font-size:13.5px; }
+  #preset,#agents { background:#161b22; border:1px solid #30363d; color:var(--ink);
+            border-radius:6px; padding:6px 9px; font-size:13.5px; cursor:pointer; }
+  .presethint { color:var(--mut); font-size:12px; }
+  .sep { width:1px; height:22px; background:#2a3340; }
+  .controls { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-top:16px; }
   .btnbox { display:flex; flex-direction:column; gap:4px; }
-  .btnbox .hint { font-size:11px; color:var(--mut); max-width:22ch; }
-  #run,#probe,#live,#govBtn { background:#238636; color:#fff; border:0; padding:8px 16px;
-         border-radius:6px; cursor:pointer; font-weight:600; }
+  .btnbox .hint { font-size:11.5px; color:var(--mut); max-width:24ch; }
+  #run,#probe,#live,#govBtn { background:#238636; color:#fff; border:0; padding:9px 17px;
+         border-radius:6px; cursor:pointer; font-weight:700; font-size:14px; }
   #probe { background:#8e1519; }
   #live { background:#1f6feb; }
   #govBtn { background:#8e1519; }
@@ -47,74 +49,74 @@
                border-radius:50%; background:#fff; transition:left .15s; }
   .tgl input:checked::after { left:20px; }
   .tgl b { color:var(--ink); }
-  /* legend: how to read the picture */
-  .legend { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:14px;
-            padding:10px 12px; background:#0d1117; border:1px solid #21262d; border-radius:8px;
-            font-size:12px; color:var(--mut); }
+  /* 범례 */
+  .legend { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:16px;
+            padding:11px 13px; background:#0d1117; border:1px solid #2a3340; border-radius:8px;
+            font-size:12.5px; color:var(--mut); }
   .legend .grp { display:flex; align-items:center; gap:6px; }
-  .legend .dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .legend .dot { width:13px; height:13px; border-radius:50%; display:inline-block; }
   .legend .sizes { display:flex; align-items:flex-end; gap:4px; }
   .legend .sizes i { background:var(--blue); border-radius:50%; display:inline-block; }
   .wrap { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:#21262d; }
-  .panel { background:var(--panel); padding:14px; min-height:60vh; }
-  .panel h2 { margin:0 0 2px; font-size:14px; letter-spacing:.04em; text-transform:uppercase; }
-  .panel .caption { color:var(--mut); font-size:11.5px; margin:0 0 8px; }
+  .panel { background:var(--panel); padding:16px; min-height:60vh; }
+  .panel h2 { margin:0 0 2px; font-size:15.5px; letter-spacing:.02em; }
+  .panel .caption { color:var(--mut); font-size:12px; margin:0 0 10px; }
   .panel.baseline h2 { color:var(--bad); }
   .panel.governed h2 { color:var(--ok); }
-  .graph { height:300px; background:#0d1117; border-radius:8px; border:1px solid #21262d;
+  .graph { height:340px; background:#0d1117; border-radius:8px; border:1px solid #21262d;
            position:relative; }
-  /* empty-state guidance shown before the first run */
+  /* 실행 전 빈 화면 안내 */
   .empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-           text-align:center; color:var(--mut); font-size:13px; padding:20px; pointer-events:none; }
-  .gauge { height:10px; background:#0d1117; border-radius:6px; margin:10px 0 4px; overflow:hidden; }
+           text-align:center; color:var(--mut); font-size:13.5px; padding:20px; pointer-events:none; }
+  .gauge { height:12px; background:#0d1117; border-radius:6px; margin:11px 0 4px; overflow:hidden; }
   .gauge > span { display:block; height:100%; background:var(--ok); transition:width .2s,background .2s; }
-  .gaugelbl { font-size:11px; color:var(--mut); margin-bottom:2px; }
-  .meta { display:flex; justify-content:space-between; color:var(--mut); font-size:12px; }
-  .badge { padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600; }
-  .feed { margin-top:10px; max-height:160px; overflow:auto; font:12px/1.45 ui-monospace,monospace; }
-  .feed div { padding:2px 0; border-bottom:1px solid #1b2129; }
+  .gaugelbl { font-size:11.5px; color:var(--mut); margin-bottom:2px; }
+  .meta { display:flex; justify-content:space-between; color:var(--mut); font-size:12.5px; }
+  .badge { padding:3px 10px; border-radius:10px; font-size:12.5px; font-weight:700; }
+  .feed { margin-top:12px; max-height:230px; overflow:auto; font:12.5px/1.5 ui-monospace,monospace; }
+  .feed div { padding:3px 0; border-bottom:1px solid #1b2129; }
   .v-allow{color:var(--ok);} .v-modify{color:var(--warn);} .v-deny{color:var(--bad);} .v-delay{color:#a371f7;}
-  /* clickable turn rows + expandable conversation detail */
+  /* 클릭 가능한 턴 행 + 펼쳐지는 대화 상세 */
   .feed .turnrow { cursor:pointer; }
   .feed .turnrow:hover { background:#1b2129; }
   .feed .turnrow .caret { color:var(--mut); font-size:10px; }
-  .feed .edited { color:var(--warn); font-size:11px; }
-  .turndetail { background:#0b0e13; border:1px solid #21262d; border-radius:6px;
-                margin:2px 0 6px; padding:8px; }
-  .turndetail .td-lbl { font-size:10px; color:var(--mut); letter-spacing:.04em;
-                        text-transform:uppercase; margin:6px 0 2px; }
+  .feed .edited { color:var(--warn); font-size:11.5px; }
+  .turndetail { background:#0b0e13; border:1px solid #2a3340; border-radius:6px;
+                margin:3px 0 7px; padding:9px; }
+  .turndetail .td-lbl { font-size:11px; color:var(--mut); letter-spacing:.02em;
+                        margin:7px 0 3px; font-weight:700; }
   .turndetail .td-lbl:first-child { margin-top:0; }
-  .turndetail pre { margin:0; padding:6px 8px; background:#161b22; border-radius:4px;
-                    white-space:pre-wrap; word-break:break-word; max-height:160px; overflow:auto;
-                    font:11px/1.5 ui-monospace,monospace; color:#cdd9e5; }
+  .turndetail pre { margin:0; padding:7px 9px; background:#161b22; border-radius:4px;
+                    white-space:pre-wrap; word-break:break-word; max-height:170px; overflow:auto;
+                    font:11.5px/1.55 ui-monospace,monospace; color:#dbe4ee; }
   .turndetail .td-del.diff { border-left:2px solid var(--warn); }
-  .turndetail .td-note { color:var(--warn); font-size:11px; margin-top:4px; }
-  /* policy editor */
-  .editor { margin-top:14px; background:#0d1117; border:1px solid #21262d; border-radius:8px; }
-  .editor > summary { cursor:pointer; padding:10px 12px; font-weight:600; color:var(--ink);
-                      list-style:none; user-select:none; }
+  .turndetail .td-note { color:var(--warn); font-size:11.5px; margin-top:5px; }
+  /* 정책 편집기 / 기록 */
+  .editor { margin-top:16px; background:#0d1117; border:1px solid #2a3340; border-radius:8px; }
+  .editor > summary { cursor:pointer; padding:11px 13px; font-weight:700; color:var(--ink);
+                      list-style:none; user-select:none; font-size:13.5px; }
   .editor > summary::-webkit-details-marker { display:none; }
   .editor[open] > summary { border-bottom:1px solid #21262d; }
-  .ed-warn { margin:10px 12px; padding:8px 10px; font-size:12px; color:#ffd9a8;
+  .ed-warn { margin:11px 13px; padding:9px 11px; font-size:12.5px; color:#ffd9a8;
              background:#3a2a12; border:1px solid #6b4b15; border-radius:6px; }
-  .ed-help { margin:6px 12px 10px; font-size:12px; color:var(--mut); max-width:95ch; }
-  .ed-help code { background:#161b22; padding:1px 5px; border-radius:4px; color:#cdd9e5; }
-  .ed-grid { display:grid; grid-template-columns:2fr 1fr; gap:12px; padding:0 12px 12px; }
+  .ed-help { margin:7px 13px 11px; font-size:12.5px; color:var(--mut); max-width:95ch; }
+  .ed-help code { background:#161b22; padding:1px 5px; border-radius:4px; color:#dbe4ee; }
+  .ed-grid { display:grid; grid-template-columns:2fr 1fr; gap:12px; padding:0 13px 13px; }
   .ed-left { display:flex; flex-direction:column; gap:8px; }
   #pol-name { background:#161b22; border:1px solid #30363d; color:var(--ink);
-              border-radius:6px; padding:7px 9px; font:12px ui-monospace,monospace; }
+              border-radius:6px; padding:7px 9px; font:12.5px ui-monospace,monospace; }
   #pol-source { background:#0b0e13; border:1px solid #30363d; color:#e6edf3; border-radius:6px;
-                padding:9px; font:12px/1.5 ui-monospace,monospace; resize:vertical; width:100%; }
+                padding:9px; font:12.5px/1.55 ui-monospace,monospace; resize:vertical; width:100%; }
   .ed-actions { display:flex; align-items:center; gap:10px; }
-  #pol-save { background:#238636; color:#fff; border:0; padding:7px 14px; border-radius:6px;
-              cursor:pointer; font-weight:600; }
-  .ed-status { font-size:12px; color:var(--mut); }
+  #pol-save { background:#238636; color:#fff; border:0; padding:8px 15px; border-radius:6px;
+              cursor:pointer; font-weight:700; }
+  .ed-status { font-size:12.5px; color:var(--mut); }
   .ed-status.ok { color:var(--ok); } .ed-status.err { color:var(--bad); }
-  .ed-listhdr { font-size:11px; color:var(--mut); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .ed-listhdr { font-size:11.5px; color:var(--mut); margin-bottom:6px; letter-spacing:.02em; }
   .ed-list .item { display:flex; align-items:center; justify-content:space-between; gap:8px;
-                   padding:6px 8px; background:#161b22; border:1px solid #21262d; border-radius:6px;
-                   margin-bottom:6px; font:12px ui-monospace,monospace; }
-  .ed-list .item .fn { cursor:pointer; color:#cdd9e5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+                   padding:7px 9px; background:#161b22; border:1px solid #21262d; border-radius:6px;
+                   margin-bottom:6px; font:12.5px ui-monospace,monospace; }
+  .ed-list .item .fn { cursor:pointer; color:#dbe4ee; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ed-list .item .fn:hover { color:#fff; text-decoration:underline; }
   .ed-list .item .del { cursor:pointer; color:var(--mut); border:0; background:none; font-size:14px; }
   .ed-list .item .del:hover { color:var(--bad); }
@@ -123,147 +125,153 @@
 <body>
 <header>
   <div class="titlerow">
-    <h1>Antigreedy — Airtime-Commons A/B Theater</h1>
-    <span class="sub">same agents, same seed — only the governance policy differs</span>
-    <label class="tgl" title="Add or remove governance on the right panel" style="margin-left:auto">
-      <input type="checkbox" id="gov" checked/> <b>Governance</b>
+    <h1>Antigreedy — 발언권 커먼즈 A/B 시연</h1>
+    <span class="sub">같은 에이전트, 같은 시드 — 오직 거버넌스 정책만 다릅니다</span>
+    <label class="tgl" title="오른쪽 패널에 거버넌스를 켜고 끕니다" style="margin-left:auto">
+      <input type="checkbox" id="gov" checked/> <b>거버넌스</b>
     </label>
   </div>
 
   <p class="explain">
-    Watch a group of AI agents share one budget in a meeting. Each bubble is an agent;
-    the bigger it grows, the more it has talked. The bar below each side is the
-    <b>commons</b> — the shared budget left. The goal of this <b>side-by-side</b> view:
-    see how a "greedy" agent drains the commons on the left, and how governance keeps it
-    fair on the right.
+    여러 AI 에이전트가 회의에서 하나의 예산을 나눠 쓰는 모습을 봅니다. 각 동그라미가 에이전트이고,
+    많이 말할수록 커집니다. 아래 막대는 <b>커먼즈(commons)</b> — 남은 공유 예산입니다.
+    이 <b>나란히 보기</b>의 목적: 왼쪽에서 "탐욕적인" 에이전트가 커먼즈를 고갈시키는 모습과,
+    오른쪽에서 거버넌스가 공정하게 유지하는 모습을 비교하는 것입니다.
   </p>
 
   <div class="gloss">
-    <span class="chip"><b>Commons</b> = the shared token budget all agents draw from. Runs out → the meeting fails.</span>
-    <span class="chip"><b>Airtime</b> = how much an agent has spoken. Bigger bubble = more airtime.</span>
-    <span class="chip"><b>Verdict</b> = what governance did to a turn: <span class="v-allow">allow</span> · <span class="v-modify">modify</span> (trimmed) · <span class="v-deny">deny</span>.</span>
+    <span class="chip"><b>커먼즈(Commons)</b> = 모든 에이전트가 끌어 쓰는 공유 토큰 예산. 바닥나면 회의는 실패합니다.</span>
+    <span class="chip"><b>발언량(Airtime)</b> = 에이전트가 말한 양. 동그라미가 클수록 발언량이 많습니다.</span>
+    <span class="chip"><b>판정(Verdict)</b> = 거버넌스가 한 턴에 한 조치: <span class="v-allow">allow(허용)</span> · <span class="v-modify">modify(축약)</span> · <span class="v-deny">deny(차단)</span>.</span>
   </div>
 
   <div class="presetbar">
-    <label for="preset"><b>Governance preset</b></label>
-    <select id="preset" title="Pick a ready-made governance set for the governed side"></select>
-    <span class="presethint">a ready-made governance set applied to the governed side — pick one, then Run A/B</span>
+    <label for="preset"><b>거버넌스 프리셋</b></label>
+    <select id="preset" title="거버넌스 측에 적용할 미리 만든 정책 세트를 고르세요"></select>
+    <span class="sep"></span>
+    <label for="agents"><b>에이전트 수</b></label>
+    <select id="agents" title="회의에 참여하는 에이전트 수 (2~8)">
+      <option value="2">2명</option><option value="3">3명</option>
+      <option value="4" selected>4명</option><option value="5">5명</option>
+      <option value="6">6명</option><option value="7">7명</option><option value="8">8명</option>
+    </select>
+    <span class="presethint">프리셋을 고르고 ▶ A/B 실행을 누르면 거버넌스 측에 적용됩니다</span>
     <span class="ed-status" id="preset-status"></span>
   </div>
 
   <div class="controls">
     <div class="btnbox">
-      <button id="run">▶ Run A/B</button>
-      <span class="hint">What this does: runs both sides side-by-side so you can compare.</span>
+      <button id="run">▶ A/B 실행</button>
+      <span class="hint">하는 일: 양쪽을 나란히 실행해 비교합니다.</span>
     </div>
     <div class="btnbox">
-      <button id="live">🔴 Live</button>
-      <span class="hint">A single live meeting — toggle governance mid-run to see the effect.</span>
+      <button id="live">🔴 실시간</button>
+      <span class="hint">단일 실시간 회의 — 진행 중 거버넌스를 켜고 꺼서 효과를 봅니다.</span>
     </div>
     <div class="btnbox">
-      <button id="probe">🚩 Deception probe</button>
-      <span class="hint">One agent secretly under-reports; watch if the monitor flags it.</span>
+      <button id="probe">🚩 기만 탐지</button>
+      <span class="hint">한 에이전트가 몰래 축소 보고합니다 — 모니터가 잡아내는지 봅니다.</span>
     </div>
     <div class="btnbox">
-      <button id="govBtn" style="display:none">Apply governance</button>
-      <span class="hint" id="govBtnHint" style="display:none">Apply or remove governance on the live run, instantly.</span>
+      <button id="govBtn" style="display:none">거버넌스 적용</button>
+      <span class="hint" id="govBtnHint" style="display:none">실시간 실행에 거버넌스를 즉시 적용/해제합니다.</span>
     </div>
   </div>
 
   <div class="legend">
-    <span style="color:var(--ink);font-weight:600">Legend</span>
-    <span class="grp">bubble colour = last verdict:</span>
-    <span class="grp"><i class="dot" style="background:var(--ok)"></i> allow</span>
-    <span class="grp"><i class="dot" style="background:var(--warn)"></i> modify</span>
-    <span class="grp"><i class="dot" style="background:var(--bad)"></i> deny / deception</span>
-    <span class="grp"><i class="dot" style="background:var(--delay)"></i> delay</span>
-    <span class="grp">bubble size = airtime
+    <span style="color:var(--ink);font-weight:700">범례</span>
+    <span class="grp">동그라미 색 = 최근 판정:</span>
+    <span class="grp"><i class="dot" style="background:var(--ok)"></i> allow 허용</span>
+    <span class="grp"><i class="dot" style="background:var(--warn)"></i> modify 축약</span>
+    <span class="grp"><i class="dot" style="background:var(--bad)"></i> deny 차단 / 기만</span>
+    <span class="grp"><i class="dot" style="background:var(--delay)"></i> delay 지연</span>
+    <span class="grp">동그라미 크기 = 발언량
       <span class="sizes"><i style="width:8px;height:8px"></i><i style="width:14px;height:14px"></i><i style="width:20px;height:20px"></i></span>
     </span>
-    <span class="grp">bar = commons left
-      (<span style="color:var(--ok)">full</span> → <span style="color:var(--warn)">low</span> → <span style="color:var(--bad)">empty</span>)</span>
+    <span class="grp">막대 = 남은 커먼즈
+      (<span style="color:var(--ok)">가득</span> → <span style="color:var(--warn)">적음</span> → <span style="color:var(--bad)">고갈</span>)</span>
   </div>
 
   <details class="editor" id="editor">
-    <summary>✏️ Policy editor — write a governance rule, apply it live</summary>
+    <summary>✏️ 정책 편집기 — 거버넌스 규칙을 작성해 바로 적용</summary>
     <div class="ed-warn" id="ed-warn">
-      ⚠️ <b>Localhost only.</b> Saving runs <b>your pasted Python</b> on this machine as a
-      governance policy. Safe on your own laptop for a demo — never expose this server publicly.
+      ⚠️ <b>localhost 전용.</b> 저장하면 <b>붙여넣은 Python</b>이 이 컴퓨터에서 거버넌스 정책으로
+      실행됩니다. 본인 노트북의 시연에서는 안전하지만, 이 서버를 외부에 공개하지 마세요.
     </div>
     <p class="ed-help">
-      Write a <code>Policy</code> subclass (one per file). Click <b>Save policy</b>, then press
-      <b>▶ Run A/B</b> or <b>🔴 Live</b> — the governed side now obeys your rule. This is the
-      "policies are just <code>.py</code>" thesis, live: an LLM could author this same file.
+      <code>Policy</code> 서브클래스를 작성하세요(파일당 하나). <b>정책 저장</b>을 누른 뒤
+      <b>▶ A/B 실행</b> 또는 <b>🔴 실시간</b>을 누르면 거버넌스 측이 규칙을 따릅니다. "정책은 그냥
+      <code>.py</code>일 뿐"이라는 명제의 라이브 시연 — LLM도 같은 파일을 작성할 수 있습니다.
     </p>
     <div class="ed-grid">
       <div class="ed-left">
-        <input id="pol-name" placeholder="filename, e.g. 50_my_rule.py" value="50_my_rule.py"/>
+        <input id="pol-name" placeholder="파일명, 예: 50_my_rule.py" value="50_my_rule.py"/>
         <textarea id="pol-source" spellcheck="false" rows="14">from antigreedy.governance.policy import Policy
 
 
 class MyRule(Policy):
     name = "my_rule"
-    priority = 5  # lower runs first; DENY/DELAY short-circuit the chain
+    priority = 5  # 숫자가 작을수록 먼저 실행; DENY/DELAY는 체인을 즉시 종료
 
     def evaluate(self, action, state, history):
         # action.agent_id, action.token_estimate, action.payload["text"]
-        # state.airtime_delivered[agent] = tokens spoken so far
+        # state.airtime_delivered[agent] = 지금까지 말한 토큰 수
         # return self.allow() / self.deny(reason=...) /
         #        self.modify({"text": "..."}, reason=...) / self.delay(2.0)
         spoken = state.airtime_delivered.get(action.agent_id, 0)
-        if spoken > 120:  # this agent has hogged the floor — trim its turn
-            return self.modify({"text": "(trimmed by my_rule)"}, reason="airtime cap")
-        return self.allow(reason="under cap")
+        if spoken > 120:  # 이 에이전트가 발언권을 독점함 — 턴을 잘라냄
+            return self.modify({"text": "(my_rule이 축약함)"}, reason="airtime cap")
+        return self.allow(reason="한도 이내")
 </textarea>
         <div class="ed-actions">
-          <button id="pol-save">Save policy</button>
+          <button id="pol-save">정책 저장</button>
           <span class="ed-status" id="pol-status"></span>
         </div>
       </div>
       <div class="ed-right">
-        <div class="ed-listhdr">Active policies (governed side)</div>
+        <div class="ed-listhdr">활성 정책 (거버넌스 측)</div>
         <div id="pol-list" class="ed-list"></div>
       </div>
     </div>
   </details>
 
   <details class="editor" id="history">
-    <summary>🕘 History — past experiments (click one to re-open &amp; replay)</summary>
+    <summary>🕘 실험 기록 — 지난 실험 (행을 클릭하면 다시 열어 재생)</summary>
     <p class="ed-help">
-      Every run you start is saved (its config + full event log). Click a row to
-      replay it into the panels — turns a one-shot demo into a reproducible logbook.
+      실행한 모든 런이 저장됩니다(설정 + 전체 이벤트 로그). 행을 클릭하면 패널에 그대로
+      재생됩니다 — 일회성 시연을 재현 가능한 기록부로 바꿔줍니다.
     </p>
-    <div class="ed-actions" style="padding:0 12px 6px">
-      <button id="hist-refresh">Refresh</button>
+    <div class="ed-actions" style="padding:0 13px 6px">
+      <button id="hist-refresh">새로고침</button>
       <span class="ed-status" id="hist-status"></span>
     </div>
-    <div id="hist-list" class="ed-list" style="padding:0 12px 12px"></div>
+    <div id="hist-list" class="ed-list" style="padding:0 13px 13px"></div>
   </details>
 </header>
 <div class="wrap">
   <section class="panel baseline" id="p-baseline">
-    <h2>Baseline · ungoverned</h2>
-    <p class="caption">No rules. A greedy agent is free to monopolise the meeting.</p>
-    <div class="graph" id="g-baseline"><div class="empty">Press <b>▶ Run A/B</b> to start the comparison.</div></div>
-    <div class="gaugelbl">commons (shared budget) remaining</div>
+    <h2>베이스라인 · 무규제</h2>
+    <p class="caption">규칙 없음. 탐욕적인 에이전트가 회의를 독점할 수 있습니다.</p>
+    <div class="graph" id="g-baseline"><div class="empty"><b>▶ A/B 실행</b>을 눌러 비교를 시작하세요.</div></div>
+    <div class="gaugelbl">남은 커먼즈(공유 예산)</div>
     <div class="gauge"><span id="bar-baseline" style="width:100%"></span></div>
-    <div class="meta"><span id="commons-baseline">commons: —</span><span class="badge" id="out-baseline">idle</span></div>
+    <div class="meta"><span id="commons-baseline">커먼즈: —</span><span class="badge" id="out-baseline">대기</span></div>
     <div class="feed" id="feed-baseline"></div>
   </section>
   <section class="panel governed" id="p-governed">
-    <h2>Governed</h2>
-    <p class="caption">Policies cap airtime, so the budget lasts until a decision.</p>
-    <div class="graph" id="g-governed"><div class="empty">Press <b>▶ Run A/B</b> to start, or <b>🔴 Live</b> for a single run.</div></div>
-    <div class="gaugelbl">commons (shared budget) remaining</div>
+    <h2>거버넌스 적용</h2>
+    <p class="caption">정책이 발언량을 제한해 예산이 합의에 이를 때까지 버팁니다.</p>
+    <div class="graph" id="g-governed"><div class="empty"><b>▶ A/B 실행</b>으로 시작하거나, <b>🔴 실시간</b>으로 단일 실행하세요.</div></div>
+    <div class="gaugelbl">남은 커먼즈(공유 예산)</div>
     <div class="gauge"><span id="bar-governed" style="width:100%"></span></div>
-    <div class="meta"><span id="commons-governed">commons: —</span><span class="badge" id="out-governed">idle</span></div>
+    <div class="meta"><span id="commons-governed">커먼즈: —</span><span class="badge" id="out-governed">대기</span></div>
     <div class="feed" id="feed-governed"></div>
   </section>
 </div>
 <script>
 const NODE_STYLE = [
   { selector:'node', style:{ 'label':'data(id)','color':'#fff','text-valign':'center',
-      'font-size':11,'width':'data(sz)','height':'data(sz)','background-color':'data(col)' } },
+      'font-size':12,'width':'data(sz)','height':'data(sz)','background-color':'data(col)' } },
   { selector:'edge', style:{ 'width':1,'line-color':'#30363d','opacity':.4 } },
 ];
 function mkGraph(id, agents){
@@ -276,18 +284,22 @@ function mkGraph(id, agents){
   return cy;
 }
 const COL = { allow:'#3fb950', modify:'#d29922', deny:'#f85149', delay:'#a371f7' };
+// 결과(outcome) 한글 표시
+const OUTCOME_KO = { survived:'생존', exhausted:'고갈', decided:'합의', cap_aborted:'중단',
+                     probe_complete:'완료', errored:'오류', idle:'대기', running:'실행 중' };
+function outKo(o){ return OUTCOME_KO[o] || o; }
 const S = {};  // condition -> {cy, budget, delivered:{}}
 function reset(cond){ S[cond] = { cy:null, budget:1, delivered:{} };
   document.getElementById('feed-'+cond).innerHTML='';
   document.getElementById('g-'+cond).innerHTML='';
   const bar=document.getElementById('bar-'+cond); bar.style.width='100%'; bar.style.background='#3fb950';
-  document.getElementById('commons-'+cond).textContent='commons: —';
-  const o=document.getElementById('out-'+cond); o.textContent='running'; o.style.background='#30363d'; }
+  document.getElementById('commons-'+cond).textContent='커먼즈: —';
+  const o=document.getElementById('out-'+cond); o.textContent='실행 중'; o.style.background='#30363d'; }
 function idle(cond, label){
   document.getElementById('g-'+cond).innerHTML='';
   document.getElementById('feed-'+cond).innerHTML='';
   document.getElementById('commons-'+cond).textContent=label;
-  const o=document.getElementById('out-'+cond); o.textContent='idle'; o.style.background='transparent'; }
+  const o=document.getElementById('out-'+cond); o.textContent='대기'; o.style.background='transparent'; }
 
 function handle(ev){
   const cond = ev.condition; if(!cond) return;
@@ -306,7 +318,7 @@ function handle(ev){
       const pct = Math.max(0, Math.min(100, 100*d.commons_left/st.budget));
       const bar=document.getElementById('bar-'+cond);
       bar.style.width=pct+'%'; bar.style.background = pct<25?'#f85149':pct<60?'#d29922':'#3fb950';
-      document.getElementById('commons-'+cond).textContent='commons: '+Math.max(0,d.commons_left)+' / '+st.budget;
+      document.getElementById('commons-'+cond).textContent='커먼즈: '+Math.max(0,d.commons_left)+' / '+st.budget;
     }
     const f=document.getElementById('feed-'+cond);
     const row=document.createElement('div');
@@ -314,10 +326,10 @@ function handle(ev){
     const changed = (d.original_text||'') !== (d.delivered_text||'');
     row.innerHTML=`<span class="caret">▸</span> r${d.round} <b>${a}</b> `+
       `<span class="v-${d.verdict}">${d.verdict}</span> `+
-      `att ${d.attempted_tokens}→del ${d.delivered_tokens}`+
+      `시도 ${d.attempted_tokens}→전달 ${d.delivered_tokens}`+
       (d.flags&&d.flags.airtime_greedy?' 🚩':'')+
-      (changed?' <span class="edited">✎ text changed</span>':'');
-    // stash the conversation so a click can reveal prompt + output + delivered
+      (changed?' <span class="edited">✎ 텍스트 변경됨</span>':'');
+    // 클릭 시 프롬프트+출력+전달본을 보여주기 위해 대화 내용을 저장
     row._turn = {prompt:d.prompt||'', original:d.original_text||'',
                  delivered:d.delivered_text||'', verdict:d.verdict, agent:a, round:d.round};
     row.onclick=()=>toggleTurn(row);
@@ -328,18 +340,17 @@ function handle(ev){
       if (st.cy){ const n=st.cy.$('#'+a); n.data('col','#f85149'); n.data('sz', Math.max(n.data('sz')||24, 44)); }
       const f=document.getElementById('feed-'+cond);
       const row=document.createElement('div'); row.style.color='#f85149';
-      row.innerHTML=`🚩 <b>${a}</b> DECEPTION — reported ${d.reported} vs true ${d.true_value}`;
+      row.innerHTML=`🚩 <b>${a}</b> 기만 — 보고값 ${d.reported} vs 실제 ${d.true_value}`;
       f.prepend(row);
     }
   } else if (ev.type==='decision' || ev.type==='episode_end'){
     const o=document.getElementById('out-'+cond);
-    const outcome = d.outcome || 'decided'; o.textContent=outcome;
+    const outcome = d.outcome || 'decided'; o.textContent=outKo(outcome);
     o.style.background = (outcome==='survived'||outcome==='decided')?'#238636':'#8e1519';
   }
 }
-// Click a turn row → reveal the conversation: the prompt the agent saw, what it
-// said (original), and what governance actually delivered (with an original→
-// delivered diff when the policy changed the text).
+// 턴 행 클릭 → 대화 공개: 에이전트가 본 프롬프트, 말한 내용(원문), 거버넌스가 실제 전달한 내용
+// (정책이 텍스트를 바꿨으면 원문→전달본 차이를 강조).
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function toggleTurn(row){
   const open = row.nextSibling && row.nextSibling.classList && row.nextSibling.classList.contains('turndetail');
@@ -348,63 +359,64 @@ function toggleTurn(row){
   const changed = (t.original||'') !== (t.delivered||'');
   const det=document.createElement('div'); det.className='turndetail';
   det.innerHTML =
-    `<div class="td-lbl">PROMPT — what ${esc(t.agent)} was asked (round ${t.round})</div>`+
-    `<pre class="td-prompt">${esc(t.prompt) || '(none)'}</pre>`+
-    `<div class="td-lbl">AGENT OUTPUT — what ${esc(t.agent)} said</div>`+
-    `<pre class="td-out">${esc(t.original) || '(empty)'}</pre>`+
-    `<div class="td-lbl">DELIVERED — after governance (${esc(t.verdict)})</div>`+
-    `<pre class="td-del ${changed?'diff':''}">${esc(t.delivered) || '(blocked — nothing delivered)'}</pre>`+
-    (changed?'<div class="td-note">✎ governance changed this turn: agent output ≠ delivered</div>':'');
+    `<div class="td-lbl">프롬프트 — ${esc(t.agent)}가 받은 질문 (r${t.round})</div>`+
+    `<pre class="td-prompt">${esc(t.prompt) || '(없음)'}</pre>`+
+    `<div class="td-lbl">에이전트 출력 — ${esc(t.agent)}가 말한 내용</div>`+
+    `<pre class="td-out">${esc(t.original) || '(비어 있음)'}</pre>`+
+    `<div class="td-lbl">전달됨 — 거버넌스 적용 후 (${esc(t.verdict)})</div>`+
+    `<pre class="td-del ${changed?'diff':''}">${esc(t.delivered) || '(차단됨 — 전달 없음)'}</pre>`+
+    (changed?'<div class="td-note">✎ 거버넌스가 이 턴을 변경: 에이전트 출력 ≠ 전달본</div>':'');
   row.after(det); row.querySelector('.caret').textContent='▾';
 }
 let liveWs=null, liveOn=false;
 const BTNS=()=>['run','live','probe'].map(id=>document.getElementById(id));
 function restoreBtns(){ BTNS().forEach(b=>b.disabled=false);
-  document.getElementById('run').textContent='▶ Run A/B';
-  document.getElementById('live').textContent='🔴 Live';
-  document.getElementById('probe').textContent='🚩 Deception probe'; }
+  document.getElementById('run').textContent='▶ A/B 실행';
+  document.getElementById('live').textContent='🔴 실시간';
+  document.getElementById('probe').textContent='🚩 기만 탐지'; }
 function endLive(){ liveWs=null; const g=document.getElementById('govBtn'); g.style.display='none';
   const h=document.getElementById('govBtnHint'); if(h) h.style.display='none'; }
 function liveLabel(){ document.querySelector('#p-governed h2').textContent=
-  '🔴 Live · one-touch governance ('+(liveOn?'ON':'OFF')+')'; }
+  '🔴 실시간 · 원터치 거버넌스 ('+(liveOn?'ON':'OFF')+')'; }
 
 function startRun(mode){
   BTNS().forEach(b=>b.disabled=true);
-  document.getElementById(mode==='ab'?'run':mode).textContent='running…';
+  document.getElementById(mode==='ab'?'run':mode).textContent='실행 중…';
   const govOn=document.getElementById('gov').checked;
+  const nAgents=parseInt(document.getElementById('agents').value)||4;
   reset('governed');
   if(mode==='live'){ liveOn=false; liveLabel(); }
   else document.querySelector('#p-governed h2').textContent =
-    mode==='probe' ? '🚩 Deception Probe' : (govOn ? 'Governed' : 'Governed · governance OFF');
+    mode==='probe' ? '🚩 기만 탐지' : (govOn ? '거버넌스 적용' : '거버넌스 OFF');
   if(mode==='probe'||mode==='live'){
-    document.querySelector('#p-baseline h2').textContent='Baseline · idle';
-    idle('baseline', mode==='live'?'(live run on the right →)':'(probe runs in the right panel)');
+    document.querySelector('#p-baseline h2').textContent='베이스라인 · 대기';
+    idle('baseline', mode==='live'?'(실시간 실행은 오른쪽 →)':'(기만 탐지는 오른쪽 패널에서 실행)');
   } else {
-    document.querySelector('#p-baseline h2').textContent='Baseline · ungoverned';
+    document.querySelector('#p-baseline h2').textContent='베이스라인 · 무규제';
     reset('baseline');
   }
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
-  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn}));
+  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
     if(ev.type==='done'){ ws.close(); restoreBtns(); endLive(); loadHistory(); return; }
     handle(ev); };
   ws.onerror=()=>{ restoreBtns(); endLive(); };
   if(mode==='live'){ liveWs=ws; const g=document.getElementById('govBtn');
-    g.style.display=''; g.textContent='Apply governance'; g.className=''; g.disabled=false;
+    g.style.display=''; g.textContent='거버넌스 적용'; g.className=''; g.disabled=false;
     const h=document.getElementById('govBtnHint'); if(h) h.style.display=''; }
 }
 document.getElementById('govBtn').onclick=()=>{
   if(!liveWs) return; liveOn=!liveOn;
   liveWs.send(JSON.stringify({action: liveOn?'govern_on':'govern_off'}));
   const g=document.getElementById('govBtn');
-  g.textContent= liveOn?'Remove governance':'Apply governance'; g.className= liveOn?'on':'';
+  g.textContent= liveOn?'거버넌스 해제':'거버넌스 적용'; g.className= liveOn?'on':'';
   liveLabel();
 };
 document.getElementById('run').onclick=()=>startRun('ab');
 document.getElementById('live').onclick=()=>startRun('live');
 document.getElementById('probe').onclick=()=>startRun('probe');
 
-// ---- policy editor (E2): write a .py → governs the next run --------------
+// ---- 정책 편집기 (E2): .py 작성 → 다음 실행을 규제 -----------------------
 function edStatus(msg, cls){ const s=document.getElementById('pol-status');
   s.textContent=msg; s.className='ed-status'+(cls?' '+cls:''); }
 function renderPolicies(list){
@@ -412,11 +424,11 @@ function renderPolicies(list){
   (list||[]).forEach(p=>{
     const row=document.createElement('div'); row.className='item';
     const fn=document.createElement('span'); fn.className='fn'; fn.textContent=p.filename;
-    fn.title='Load into the editor'; fn.onclick=()=>{
+    fn.title='편집기에 불러오기'; fn.onclick=()=>{
       document.getElementById('pol-name').value=p.filename;
       document.getElementById('pol-source').value=p.source; };
     const del=document.createElement('button'); del.className='del'; del.textContent='✕';
-    del.title='Delete'; del.onclick=()=>delPolicy(p.filename);
+    del.title='삭제'; del.onclick=()=>delPolicy(p.filename);
     row.appendChild(fn); row.appendChild(del); box.appendChild(row);
   });
 }
@@ -424,42 +436,42 @@ async function loadPolicies(){
   try{ const r=await fetch('/policies'); const j=await r.json();
     renderPolicies(j.policies);
     if(!j.editable){ document.getElementById('pol-save').disabled=true;
-      edStatus('editor disabled on this server','err'); }
-  }catch(e){ /* editor optional */ }
+      edStatus('이 서버에서 편집기 비활성','err'); }
+  }catch(e){ /* 편집기는 선택 기능 */ }
 }
 async function savePolicy(){
   const filename=document.getElementById('pol-name').value.trim();
   const source=document.getElementById('pol-source').value;
-  edStatus('saving…');
+  edStatus('저장 중…');
   try{
     const r=await fetch('/policies',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({filename, source})});
     const j=await r.json();
-    if(!r.ok){ edStatus(j.error||'save failed','err'); return; }
+    if(!r.ok){ edStatus(j.error||'저장 실패','err'); return; }
     renderPolicies(j.policies);
-    edStatus('saved ✓ — press ▶ Run A/B or 🔴 Live to apply','ok');
-  }catch(e){ edStatus('network error','err'); }
+    edStatus('저장됨 ✓ — ▶ A/B 실행 또는 🔴 실시간으로 적용','ok');
+  }catch(e){ edStatus('네트워크 오류','err'); }
 }
 async function delPolicy(filename){
   try{ const r=await fetch('/policies/'+encodeURIComponent(filename),{method:'DELETE'});
     const j=await r.json(); renderPolicies(j.policies);
-    edStatus('removed '+filename,'ok');
-  }catch(e){ edStatus('delete failed','err'); }
+    edStatus('삭제됨 '+filename,'ok');
+  }catch(e){ edStatus('삭제 실패','err'); }
 }
 document.getElementById('pol-save').onclick=savePolicy;
 loadPolicies();
 
-// ---- governance presets: pick a ready-made set, apply it to governed --------
+// ---- 거버넌스 프리셋: 미리 만든 세트를 골라 거버넌스 측에 적용 -------------
 async function loadPresets(){
   try{
     const r=await fetch('/presets'); const j=await r.json();
     const sel=document.getElementById('preset'); sel.innerHTML='';
     (j.presets||[]).forEach(p=>{
       const o=document.createElement('option'); o.value=p.name;
-      o.textContent=p.label+(p.policies.length?` (${p.policies.length} polic${p.policies.length>1?'ies':'y'})`:'');
+      o.textContent=p.label+(p.policies.length?` (정책 ${p.policies.length}개)`:'');
       sel.appendChild(o);
     });
-    // reflect the current editor set as the selected preset (default = quota)
+    // 현재 편집기 세트를 선택된 프리셋으로 반영 (기본 = quota)
     sel.value = (await currentPresetName(j.presets)) || sel.value;
   }catch(e){}
 }
@@ -474,30 +486,30 @@ async function currentPresetName(presets){
   return null;
 }
 async function applyPreset(name){
-  const s=document.getElementById('preset-status'); s.textContent='applying…'; s.className='ed-status';
+  const s=document.getElementById('preset-status'); s.textContent='적용 중…'; s.className='ed-status';
   try{
     const r=await fetch('/presets/'+encodeURIComponent(name)+'/apply',{method:'POST'});
     const j=await r.json();
-    if(!r.ok){ s.textContent=j.error||'apply failed'; s.className='ed-status err'; return; }
-    s.textContent='applied ✓ — press ▶ Run A/B to see it'; s.className='ed-status ok';
-    renderPolicies(j.policies);            // editor list now shows the preset's policies
-  }catch(e){ s.textContent='network error'; s.className='ed-status err'; }
+    if(!r.ok){ s.textContent=j.error||'적용 실패'; s.className='ed-status err'; return; }
+    s.textContent='적용됨 ✓ — ▶ A/B 실행으로 확인'; s.className='ed-status ok';
+    renderPolicies(j.policies);            // 편집기 목록이 프리셋 정책으로 갱신됨
+  }catch(e){ s.textContent='네트워크 오류'; s.className='ed-status err'; }
 }
 document.getElementById('preset').onchange=(e)=>applyPreset(e.target.value);
 loadPresets();
 
-// ---- experiment history (E3): list past runs, re-open to replay ---------
-function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+v).join('  '); }
+// ---- 실험 기록 (E3): 지난 런 목록, 다시 열어 재생 -----------------------
+function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+outKo(v)).join('  '); }
 function renderHistory(runs){
   const box=document.getElementById('hist-list'); box.innerHTML='';
   if(!runs || !runs.length){
-    box.innerHTML='<span class="ed-status">no runs yet — press ▶ Run A/B, 🔴 Live, or 🚩 Probe</span>'; return; }
+    box.innerHTML='<span class="ed-status">아직 기록 없음 — ▶ A/B 실행, 🔴 실시간, 🚩 기만 탐지를 눌러보세요</span>'; return; }
   runs.forEach(r=>{
     const row=document.createElement('div'); row.className='item';
     const fn=document.createElement('span'); fn.className='fn';
     fn.textContent=`${r.created_iso} · ${r.mode} · ${fmtOutcomes(r.outcomes)}`
       +(r.deceptions&&r.deceptions.length?'  🚩'+r.deceptions.join(','):'');
-    fn.title='Re-open & replay this run'; fn.onclick=()=>replayRun(r.id);
+    fn.title='다시 열어 재생'; fn.onclick=()=>replayRun(r.id);
     row.appendChild(fn); box.appendChild(row);
   });
 }
@@ -509,13 +521,13 @@ async function replayRun(id){
     const r=await fetch('/history/'+encodeURIComponent(id)); const rec=await r.json();
     if(!rec.events) return;
     const conds=[...new Set(rec.events.map(e=>e.condition).filter(Boolean))];
-    ['baseline','governed'].forEach(c=> conds.includes(c) ? reset(c) : idle(c,'(no data this run)'));
-    document.querySelector('#p-baseline h2').textContent='Baseline · replay';
-    document.querySelector('#p-governed h2').textContent='Governed · replay';
+    ['baseline','governed'].forEach(c=> conds.includes(c) ? reset(c) : idle(c,'(이 런에는 데이터 없음)'));
+    document.querySelector('#p-baseline h2').textContent='베이스라인 · 재생';
+    document.querySelector('#p-governed h2').textContent='거버넌스 · 재생';
     rec.events.forEach(handle);
-    document.getElementById('hist-status').textContent='replaying '+id;
+    document.getElementById('hist-status').textContent='재생 중 '+id;
     document.getElementById('hist-status').className='ed-status ok';
-  }catch(e){ document.getElementById('hist-status').textContent='replay failed';
+  }catch(e){ document.getElementById('hist-status').textContent='재생 실패';
     document.getElementById('hist-status').className='ed-status err'; }
 }
 document.getElementById('hist-refresh').onclick=loadHistory;
