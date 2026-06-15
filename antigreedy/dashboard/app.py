@@ -52,6 +52,31 @@ def _list_policies(editor_dir: Path) -> list[dict[str, str]]:
             for p in sorted(editor_dir.glob("*.py"))]
 
 
+# Named governance presets (PRD §4 "swap policy Y→Z live"). Each maps to a
+# source dir of *.py policies; `None` = ungoverned. The default repo set
+# (policies/*.py, top-level) is the "quota" preset; "strict" lives under
+# policies/presets/strict. Applying one re-seeds the live editor dir.
+def _preset_defs(policies_dir: Path) -> list[dict]:
+    return [
+        {"name": "none", "label": "None — ungoverned (baseline)", "dir": None},
+        {"name": "quota", "label": "Airtime quota (default)", "dir": Path(policies_dir)},
+        {"name": "strict", "label": "Strict quota (tighter cap)",
+         "dir": Path(policies_dir) / "presets" / "strict"},
+    ]
+
+
+def _preset_files(d: Path | None) -> list[str]:
+    return sorted(p.name for p in d.glob("*.py")) if d and d.exists() else []
+
+
+def _apply_preset_files(editor_dir: Path, source_dir: Path | None) -> None:
+    for old in editor_dir.glob("*.py"):
+        old.unlink()
+    if source_dir and source_dir.exists():
+        for src in sorted(source_dir.glob("*.py")):
+            shutil.copy2(src, editor_dir / src.name)
+
+
 def _default_backend() -> LLMBackend:
     return MockBackend(make_meeting_script(dominator="A"))
 
@@ -133,6 +158,24 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         if target.exists():
             target.unlink()
         return JSONResponse({"ok": True, "policies": _list_policies(editor_dir)})
+
+    @app.get("/presets")
+    async def list_presets() -> dict:
+        return {"presets": [{"name": p["name"], "label": p["label"],
+                             "policies": _preset_files(p["dir"])}
+                            for p in _preset_defs(policies_dir)]}
+
+    @app.post("/presets/{name}/apply")
+    async def apply_preset(name: str, request: Request) -> JSONResponse:
+        denied = _guard(request)
+        if denied is not None:
+            return denied
+        preset = next((p for p in _preset_defs(policies_dir) if p["name"] == name), None)
+        if preset is None:
+            return JSONResponse({"error": f"unknown preset '{name}'"}, status_code=404)
+        _apply_preset_files(editor_dir, preset["dir"])
+        return JSONResponse({"ok": True, "applied": name,
+                             "policies": _list_policies(editor_dir)})
 
     @app.get("/history")
     async def history_list() -> dict:

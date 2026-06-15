@@ -23,6 +23,11 @@
                  padding:6px 10px; font-size:12px; color:var(--mut); }
   .gloss .chip b { color:var(--ink); }
   /* control bar */
+  .presetbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .presetbar label { color:var(--ink); font-size:13px; }
+  #preset { background:#161b22; border:1px solid #30363d; color:var(--ink);
+            border-radius:6px; padding:6px 9px; font-size:13px; cursor:pointer; }
+  .presethint { color:var(--mut); font-size:11.5px; }
   .controls { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-top:14px; }
   .btnbox { display:flex; flex-direction:column; gap:4px; }
   .btnbox .hint { font-size:11px; color:var(--mut); max-width:22ch; }
@@ -137,6 +142,13 @@
     <span class="chip"><b>Commons</b> = the shared token budget all agents draw from. Runs out → the meeting fails.</span>
     <span class="chip"><b>Airtime</b> = how much an agent has spoken. Bigger bubble = more airtime.</span>
     <span class="chip"><b>Verdict</b> = what governance did to a turn: <span class="v-allow">allow</span> · <span class="v-modify">modify</span> (trimmed) · <span class="v-deny">deny</span>.</span>
+  </div>
+
+  <div class="presetbar">
+    <label for="preset"><b>Governance preset</b></label>
+    <select id="preset" title="Pick a ready-made governance set for the governed side"></select>
+    <span class="presethint">a ready-made governance set applied to the governed side — pick one, then Run A/B</span>
+    <span class="ed-status" id="preset-status"></span>
   </div>
 
   <div class="controls">
@@ -436,6 +448,43 @@ async function delPolicy(filename){
 }
 document.getElementById('pol-save').onclick=savePolicy;
 loadPolicies();
+
+// ---- governance presets: pick a ready-made set, apply it to governed --------
+async function loadPresets(){
+  try{
+    const r=await fetch('/presets'); const j=await r.json();
+    const sel=document.getElementById('preset'); sel.innerHTML='';
+    (j.presets||[]).forEach(p=>{
+      const o=document.createElement('option'); o.value=p.name;
+      o.textContent=p.label+(p.policies.length?` (${p.policies.length} polic${p.policies.length>1?'ies':'y'})`:'');
+      sel.appendChild(o);
+    });
+    // reflect the current editor set as the selected preset (default = quota)
+    sel.value = (await currentPresetName(j.presets)) || sel.value;
+  }catch(e){}
+}
+async function currentPresetName(presets){
+  try{
+    const cur=new Set((await (await fetch('/policies')).json()).policies.map(p=>p.filename));
+    for(const p of presets){
+      const want=new Set(p.policies);
+      if(want.size===cur.size && [...want].every(x=>cur.has(x))) return p.name;
+    }
+  }catch(e){}
+  return null;
+}
+async function applyPreset(name){
+  const s=document.getElementById('preset-status'); s.textContent='applying…'; s.className='ed-status';
+  try{
+    const r=await fetch('/presets/'+encodeURIComponent(name)+'/apply',{method:'POST'});
+    const j=await r.json();
+    if(!r.ok){ s.textContent=j.error||'apply failed'; s.className='ed-status err'; return; }
+    s.textContent='applied ✓ — press ▶ Run A/B to see it'; s.className='ed-status ok';
+    renderPolicies(j.policies);            // editor list now shows the preset's policies
+  }catch(e){ s.textContent='network error'; s.className='ed-status err'; }
+}
+document.getElementById('preset').onchange=(e)=>applyPreset(e.target.value);
+loadPresets();
 
 // ---- experiment history (E3): list past runs, re-open to replay ---------
 function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+v).join('  '); }

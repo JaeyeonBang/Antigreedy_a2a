@@ -92,6 +92,41 @@ test.describe('E2 — in-dashboard policy editor (the live wow)', () => {
   });
 });
 
+test.describe('Conversation view — see each prompt + output + delivered', () => {
+  test('clicking a governed turn reveals prompt, agent output and delivered text', async ({ page }) => {
+    await page.goto('/');
+    await runAB(page);
+    await page.locator('#feed-governed .turnrow').first().click();
+    const detail = page.locator('#feed-governed .turndetail').first();
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText('PROMPT');
+    await expect(detail).toContainText('AGENT OUTPUT');
+    await expect(detail).toContainText('DELIVERED');
+  });
+});
+
+test.describe('Governance presets — swap the governed set', () => {
+  test('selecting a preset applies it and changes governed behavior', async ({ page }) => {
+    await page.goto('/');
+    // dropdown is populated from /presets
+    await expect(page.locator('#preset option')).toHaveCount(3);
+
+    // pick "strict" → applied + the strict policy shows in the active list
+    await page.locator('#preset').selectOption('strict');
+    await expect(page.locator('#preset-status')).toHaveClass(/ok/);
+    await expect(page.locator('#pol-list')).toContainText('strict');
+
+    // strict governance bites on the next run (modify or deny)
+    await runAB(page);
+    await expect(page.locator('#feed-governed .v-deny, #feed-governed .v-modify').first())
+      .toBeVisible();
+
+    // restore the default so the shared server is left clean
+    await page.locator('#preset').selectOption('quota');
+    await expect(page.locator('#preset-status')).toHaveClass(/ok/);
+  });
+});
+
 test.describe('E3 — experiment history (persist + replay)', () => {
   test('a finished run appears in History and can be re-opened to replay', async ({ page }) => {
     await page.goto('/');
