@@ -47,6 +47,11 @@ def _agents(n: int) -> list[str]:
     return list(_AGENT_LETTERS[:n])
 
 
+def _clamp_budget(b: int) -> int:
+    """Commons budget the UI may set, clamped to a sane [200, 8000] range."""
+    return max(200, min(8000, int(b)))
+
+
 def _is_local(host: str | None) -> bool:
     """True for loopback callers. The policy editor executes user-supplied
     Python server-side, so writes are gated to the presenter's own machine."""
@@ -213,6 +218,8 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                 governed = bool(msg.get("governed", True))
                 if msg.get("n_agents") is not None:  # configurable agent count
                     run_cfg = replace(run_cfg, agents=_agents(msg["n_agents"]))
+                if msg.get("budget") is not None:    # configurable commons size
+                    run_cfg = replace(run_cfg, budget=_clamp_budget(msg["budget"]))
         except asyncio.TimeoutError:
             pass
         except WebSocketDisconnect:

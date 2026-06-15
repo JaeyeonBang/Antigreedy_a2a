@@ -207,3 +207,14 @@ test.describe('Agent count — configurable number of agents', () => {
     await expect(gov).not.toContainText('D');    // no 4th agent in a 3-agent run
   });
 });
+
+test.describe('Commons budget — configurable scenario difficulty', () => {
+  test('the budget selector sets the commons size shown in the gauge', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#budget')).toHaveValue('1200');      // default
+    await page.locator('#budget').selectOption('400');
+    await runAB(page);
+    // the commons readout reflects the chosen budget (… / 400)
+    await expect(page.locator('#commons-governed')).toContainText('/ 400');
+  });
+});
