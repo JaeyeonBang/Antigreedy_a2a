@@ -69,6 +69,21 @@
   .feed { margin-top:10px; max-height:160px; overflow:auto; font:12px/1.45 ui-monospace,monospace; }
   .feed div { padding:2px 0; border-bottom:1px solid #1b2129; }
   .v-allow{color:var(--ok);} .v-modify{color:var(--warn);} .v-deny{color:var(--bad);} .v-delay{color:#a371f7;}
+  /* clickable turn rows + expandable conversation detail */
+  .feed .turnrow { cursor:pointer; }
+  .feed .turnrow:hover { background:#1b2129; }
+  .feed .turnrow .caret { color:var(--mut); font-size:10px; }
+  .feed .edited { color:var(--warn); font-size:11px; }
+  .turndetail { background:#0b0e13; border:1px solid #21262d; border-radius:6px;
+                margin:2px 0 6px; padding:8px; }
+  .turndetail .td-lbl { font-size:10px; color:var(--mut); letter-spacing:.04em;
+                        text-transform:uppercase; margin:6px 0 2px; }
+  .turndetail .td-lbl:first-child { margin-top:0; }
+  .turndetail pre { margin:0; padding:6px 8px; background:#161b22; border-radius:4px;
+                    white-space:pre-wrap; word-break:break-word; max-height:160px; overflow:auto;
+                    font:11px/1.5 ui-monospace,monospace; color:#cdd9e5; }
+  .turndetail .td-del.diff { border-left:2px solid var(--warn); }
+  .turndetail .td-note { color:var(--warn); font-size:11px; margin-top:4px; }
   /* policy editor */
   .editor { margin-top:14px; background:#0d1117; border:1px solid #21262d; border-radius:8px; }
   .editor > summary { cursor:pointer; padding:10px 12px; font-weight:600; color:var(--ink);
@@ -283,8 +298,17 @@ function handle(ev){
     }
     const f=document.getElementById('feed-'+cond);
     const row=document.createElement('div');
-    row.innerHTML=`r${d.round} <b>${a}</b> <span class="v-${d.verdict}">${d.verdict}</span> `+
-      `att ${d.attempted_tokens}→del ${d.delivered_tokens}`+(d.flags&&d.flags.airtime_greedy?' 🚩':'');
+    row.className='turnrow';
+    const changed = (d.original_text||'') !== (d.delivered_text||'');
+    row.innerHTML=`<span class="caret">▸</span> r${d.round} <b>${a}</b> `+
+      `<span class="v-${d.verdict}">${d.verdict}</span> `+
+      `att ${d.attempted_tokens}→del ${d.delivered_tokens}`+
+      (d.flags&&d.flags.airtime_greedy?' 🚩':'')+
+      (changed?' <span class="edited">✎ text changed</span>':'');
+    // stash the conversation so a click can reveal prompt + output + delivered
+    row._turn = {prompt:d.prompt||'', original:d.original_text||'',
+                 delivered:d.delivered_text||'', verdict:d.verdict, agent:a, round:d.round};
+    row.onclick=()=>toggleTurn(row);
     f.prepend(row);
   } else if (ev.type==='ground_truth'){
     if (d.deceptive){
@@ -300,6 +324,26 @@ function handle(ev){
     const outcome = d.outcome || 'decided'; o.textContent=outcome;
     o.style.background = (outcome==='survived'||outcome==='decided')?'#238636':'#8e1519';
   }
+}
+// Click a turn row → reveal the conversation: the prompt the agent saw, what it
+// said (original), and what governance actually delivered (with an original→
+// delivered diff when the policy changed the text).
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function toggleTurn(row){
+  const open = row.nextSibling && row.nextSibling.classList && row.nextSibling.classList.contains('turndetail');
+  if (open){ row.nextSibling.remove(); row.querySelector('.caret').textContent='▸'; return; }
+  const t = row._turn || {};
+  const changed = (t.original||'') !== (t.delivered||'');
+  const det=document.createElement('div'); det.className='turndetail';
+  det.innerHTML =
+    `<div class="td-lbl">PROMPT — what ${esc(t.agent)} was asked (round ${t.round})</div>`+
+    `<pre class="td-prompt">${esc(t.prompt) || '(none)'}</pre>`+
+    `<div class="td-lbl">AGENT OUTPUT — what ${esc(t.agent)} said</div>`+
+    `<pre class="td-out">${esc(t.original) || '(empty)'}</pre>`+
+    `<div class="td-lbl">DELIVERED — after governance (${esc(t.verdict)})</div>`+
+    `<pre class="td-del ${changed?'diff':''}">${esc(t.delivered) || '(blocked — nothing delivered)'}</pre>`+
+    (changed?'<div class="td-note">✎ governance changed this turn: agent output ≠ delivered</div>':'');
+  row.after(det); row.querySelector('.caret').textContent='▾';
 }
 let liveWs=null, liveOn=false;
 const BTNS=()=>['run','live','probe'].map(id=>document.getElementById(id));

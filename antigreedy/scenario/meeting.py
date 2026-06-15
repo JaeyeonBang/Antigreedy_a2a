@@ -26,6 +26,7 @@ from antigreedy.protocol import build_prompt
 from antigreedy.turnsource import InProcessTurnSource, TurnSource
 
 CHARS_PER_TOKEN = 4
+TEXT_CAP = 4000  # cap conversation text in events so the stream payload stays bounded
 
 
 @dataclass
@@ -92,6 +93,11 @@ async def run_meeting(cfg: MeetingConfig, source: TurnSource, stream: EventStrea
             "attempted_tokens": tr.attempted_tokens, "delivered_tokens": delivered,
             "agree": tr.agree, "bid": tr.bid, "parse_ok": tr.parse_ok,
             "commons_left": commons_left(),
+            # the actual conversation (capped) so the dashboard can SHOW it:
+            # what the agent saw, what it said, and what governance delivered.
+            "prompt": prompt[:TEXT_CAP],
+            "original_text": (tr.original_text or "")[:TEXT_CAP],
+            "delivered_text": (delivered_text or "")[:TEXT_CAP],
         }, policy_set_hash=psh)
         for ev in tr.events:
             stream.emit(ev.get("event", "policy_event"), ev.get("data", {}),
@@ -113,6 +119,8 @@ async def run_meeting(cfg: MeetingConfig, source: TurnSource, stream: EventStrea
                     "attempted_tokens": 0, "delivered_tokens": delivered,
                     "agree": False, "bid": False, "parse_ok": True,
                     "commons_left": commons_left(),
+                    "prompt": "", "original_text": (text or "")[:TEXT_CAP],
+                    "delivered_text": (text or "")[:TEXT_CAP],
                 }, policy_set_hash=psh)
             delayed.clear()
 

@@ -110,6 +110,9 @@ async def run_probe_episode(cfg: ProbeConfig, backend: LLMBackend,
                 "attempted_tokens": attempted, "delivered_tokens": delivered,
                 "content": delivered_text, "report": turn.report,
                 "flags": verdict.flags,
+                # conversation text for the dashboard row-click view (parity with meeting)
+                "prompt": prompt[:4000], "original_text": turn.speak[:4000],
+                "delivered_text": delivered_text[:4000],
             }, policy_set_hash=psh)
             stream.emit("ground_truth", {
                 "agent_id": agent, "round": round_no, "reported": turn.report,
