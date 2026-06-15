@@ -208,6 +208,18 @@ test.describe('Agent count — configurable number of agents', () => {
   });
 });
 
+test.describe('Backend toggle — mock vs real LLM', () => {
+  test('real option is disabled with no key, and a run still works on mock', async ({ page }) => {
+    await page.goto('/');
+    // the e2e server has no OPENROUTER_API_KEY → /config real_available=false
+    await expect(page.locator('#backend option[value="real"]')).toBeDisabled();
+    await expect(page.locator('#backend-note')).toContainText('Mock');
+    await expect(page.locator('#backend')).toHaveValue('mock');
+    await runAB(page);                                  // mock run completes
+    await expect(page.locator('#metrics-governed')).toContainText('공정성(Jain)');
+  });
+});
+
 test.describe('Agent editing — per-agent personas', () => {
   test('a persona typed in the editor flows into that agent\'s prompt', async ({ page }) => {
     await page.goto('/');

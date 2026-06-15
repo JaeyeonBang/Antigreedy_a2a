@@ -179,6 +179,13 @@
       <option value="1200" selected>보통 1200</option>
       <option value="3000">크게 3000</option>
     </select>
+    <span class="sep"></span>
+    <label for="backend"><b>백엔드</b></label>
+    <select id="backend" title="Mock(무료) 또는 실 LLM(OpenRouter, 비용 발생)">
+      <option value="mock" selected>Mock (무료·결정론적)</option>
+      <option value="real">실 LLM (OpenRouter · 비용)</option>
+    </select>
+    <span class="ed-status" id="backend-note"></span>
     <span class="presethint">프리셋을 고르고 ▶ A/B 실행을 누르면 거버넌스 측에 적용됩니다</span>
     <span class="ed-status" id="preset-status"></span>
   </div>
@@ -461,7 +468,8 @@ function startRun(mode){
   }
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
   const personas=collectPersonas();
-  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents, budget:budget, personas:personas}));
+  const backend=document.getElementById('backend').value;
+  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents, budget:budget, personas:personas, backend:backend}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
     if(ev.type==='done'){ ws.close(); restoreBtns(); endLive(); loadHistory(); return; }
     handle(ev); };
@@ -585,6 +593,21 @@ function collectPersonas(){
 }
 document.getElementById('agents').addEventListener('change', renderAgentEditor);
 renderAgentEditor();
+
+// ---- 백엔드 선택: Mock(무료) vs 실 LLM(OpenRouter, 비용) -------------------
+async function loadConfig(){
+  try{ const j=await (await fetch('/config')).json();
+    const real=document.querySelector('#backend option[value="real"]');
+    if(!j.real_available){ real.disabled=true; real.textContent='실 LLM (키 없음 — 비활성)';
+      document.getElementById('backend-note').textContent='OPENROUTER_API_KEY 미설정 → Mock만 가능'; }
+  }catch(e){}
+}
+document.getElementById('backend').addEventListener('change',(e)=>{
+  const s=document.getElementById('backend-note');
+  if(e.target.value==='real'){ s.textContent='⚠️ 실 LLM은 OpenRouter API 비용이 발생합니다 (예산·라운드로 제한됨)'; s.className='ed-status err'; }
+  else { s.textContent=''; s.className='ed-status'; }
+});
+loadConfig();
 
 // ---- 실험 기록 (E3): 지난 런 목록, 다시 열어 재생 -----------------------
 function fmtOutcomes(o){ return Object.entries(o||{}).map(([k,v])=>k+'='+outKo(v)).join('  '); }

@@ -110,6 +110,7 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                backend_factory: Callable[[], LLMBackend] = _default_backend,
                probe_backend_factory: Callable[[], LLMBackend] = _default_probe_backend,
                live_backend_factory: Callable[[], LLMBackend] = _default_live_backend,
+               real_backend_factory: Callable[[], LLMBackend] | None = None,
                cfg: ABConfig | None = None,
                editor_enabled: bool = True,
                localhost_only: bool = True,
@@ -129,6 +130,10 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     @app.get("/", response_class=HTMLResponse)
     async def index() -> str:
         return html
+
+    @app.get("/config")
+    async def config() -> dict:
+        return {"real_available": real_backend_factory is not None}
 
     @app.get("/policies")
     async def list_policies() -> dict:
@@ -226,11 +231,14 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         # set, so both panels collapse — a live add/remove-governance demo.
         mode, governed = "ab", True
         run_cfg = cfg or ABConfig()
+        use_real = False
         try:
             msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.5)
             if isinstance(msg, dict):
                 mode = msg.get("mode", "ab")
                 governed = bool(msg.get("governed", True))
+                # real LLM only when one is configured; otherwise fall back to mock
+                use_real = msg.get("backend") == "real" and real_backend_factory is not None
                 if msg.get("n_agents") is not None:  # configurable agent count
                     run_cfg = replace(run_cfg, agents=_agents(msg["n_agents"]))
                 if msg.get("budget") is not None:    # configurable commons size
@@ -242,6 +250,10 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
             pass
         except WebSocketDisconnect:
             return
+        # pick the backend factory: real (if requested + available) else the mock defaults
+        ab_factory = real_backend_factory if use_real else backend_factory
+        probe_factory = real_backend_factory if use_real else probe_backend_factory
+        live_factory = real_backend_factory if use_real else live_backend_factory
         queue: asyncio.Queue = asyncio.Queue()
         collected: list[dict] = []  # E3: accumulate the event log to persist the run
 
@@ -257,17 +269,17 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
 
         if mode == "live":
             await _run_live(websocket, queue, governed_policies_dir, baseline_dir,
-                            live_backend_factory(), run_cfg, sink=sink)
+                            live_factory(), run_cfg, sink=sink)
             persist()
             return
         if mode == "probe":
             task = asyncio.create_task(run_probe(
-                governed_policies_dir, backend=probe_backend_factory(),
+                governed_policies_dir, backend=probe_factory(),
                 sink=sink, cfg=run_cfg))
         else:
             governed_dir = governed_policies_dir if governed else baseline_dir
             task = asyncio.create_task(run_ab(
-                baseline_dir, governed_dir, backend=backend_factory(),
+                baseline_dir, governed_dir, backend=ab_factory(),
                 sink=sink, cfg=run_cfg))
         try:
             while not (task.done() and queue.empty()):
