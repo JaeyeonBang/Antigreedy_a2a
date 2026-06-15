@@ -205,3 +205,22 @@ multi-scenario library, shareable run permalinks) before committing build effort
   decision-quality LLM-judge, policy GAN loop → TODOS.md.
 - **Sequencing for the demo**: E1 (audience can follow) → E2 (the live wow) → E3
   (reproducibility). Static run-export is optional polish (slide screenshots suffice).
+
+### v0.2 status — E1+E2+E3 SHIPPED (2026-06-16)
+
+All three demo features are built, tested, and pushed (`origin/main`). 131 tests
+/ 1 skipped, all dashboard legs live-verified over real HTTP+WS.
+
+- **E1 — beginner-friendly UX** (`theater.html`): jargon glosses (commons =
+  shared token budget; airtime = how much an agent speaks; verdict allow/modify/
+  deny), a colour/size/bar legend, empty-state guidance, and per-button "what
+  this does" lines. Pure UX pass — the WS contract/JS logic is unchanged.
+- **E2 — in-dashboard policy editor** (the live wow): paste a `Policy` subclass
+  → `POST /policies` writes it into a per-app editor dir (a writable copy of the
+  repo set) → the next governed run obeys it. Localhost-only gate + filename
+  validation + compile-check before write. Verified: a pasted deny-A policy
+  muted agent A across all 16 governed turns.
+- **E3 — experiment history**: every run persisted (config + full event log)
+  under `runs/`; `GET /history` lists past runs, `GET /history/{id}` returns the
+  replayable log; the History panel re-opens a run by re-feeding events through
+  the same renderer. Survives server restart.
