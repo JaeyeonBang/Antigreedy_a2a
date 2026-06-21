@@ -154,6 +154,12 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     async def help_page() -> str:
         return help_html
 
+    governance_html = (STATIC / "governance.html").read_text(encoding="utf-8")
+
+    @app.get("/governance", response_class=HTMLResponse)
+    async def governance_page() -> str:
+        return governance_html
+
     @app.get("/config")
     async def config() -> dict:
         return {"real_available": real_backend_factory is not None}

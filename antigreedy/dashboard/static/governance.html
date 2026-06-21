@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Antigreedy — 거버넌스 전략 문서 (실험 설계 & 결과)</title>
+<style>
+  :root{--bg:#0e1116;--panel:#161b22;--ink:#e6edf3;--mut:#9aa6b2;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--blue:#1f6feb;}
+  *{box-sizing:border-box;}
+  body{margin:0;font:15px/1.7 system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);}
+  .wrap{max-width:1000px;margin:0 auto;padding:30px 22px 90px;}
+  a{color:#58a6ff;} .back{display:inline-block;margin-bottom:16px;font-size:13px;}
+  h1{font-size:25px;margin:0 0 6px;} h2{font-size:19px;margin:38px 0 8px;border-bottom:1px solid #21262d;padding-bottom:6px;}
+  h3{font-size:16px;margin:22px 0 4px;}
+  .sub{color:var(--mut);font-size:13.5px;margin:0 0 8px;}
+  p{margin:7px 0;} b{color:#fff;} code{background:#161b22;border:1px solid #21262d;border-radius:4px;padding:1px 6px;font:13px ui-monospace,monospace;color:#dbe4ee;}
+  .card{background:#0d1117;border:1px solid #2a3340;border-radius:9px;padding:16px 18px;margin:16px 0;}
+  .card.impl{border-left:3px solid var(--ok);} .card.design{border-left:3px solid var(--warn);}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle;}
+  .tag.impl{background:#16331d;color:var(--ok);} .tag.design{background:#3a2a12;color:var(--warn);}
+  .lbl{display:inline-block;min-width:74px;color:#6e7b8a;font-weight:700;}
+  .row{margin:5px 0;font-size:13.8px;}
+  table{width:100%;border-collapse:collapse;font-size:13.3px;margin:10px 0;}
+  th,td{border:1px solid #21262d;padding:6px 9px;text-align:left;} th{background:#0d1117;color:var(--mut);}
+  td.good{color:var(--ok);font-weight:700;} td.bad{color:var(--bad);}
+  .ana{color:#cdd9e5;font-style:italic;border-left:2px solid #2f3b49;padding-left:9px;margin:7px 0;}
+  .note{background:#1c2330;border:1px solid #2a3340;border-radius:6px;padding:10px 13px;color:var(--mut);font-size:13px;margin:12px 0;}
+  .warn{background:#3a2a12;border:1px solid #6b4b15;border-radius:6px;padding:10px 13px;color:#ffd9a8;font-size:13px;margin:12px 0;}
+  ul{margin:6px 0;padding-left:22px;} li{margin:3px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← 대시보드</a> &nbsp; <a class="back" href="/help">도움말 &amp; 정의 →</a>
+  <h1>거버넌스 전략 — 실험 설계 &amp; 결과</h1>
+  <p class="sub">출처 리뷰: <code>docs/research_2.md</code> §5.2 (사회심리학 기반 거버넌스 제안). 각 전략의
+  [이론 → 메커니즘 → 구현 → 실험 설계 → 실험 결과 → 한계]. 모든 수치는 코드와 1:1로 재현 가능.</p>
+
+  <h2>0. 공통 실험 설계</h2>
+  <div class="card">
+    <p><span class="lbl">대상</span> greedy = 한 에이전트가 <b>공유 자원을 독점</b>해 집단을 해치는 행동(이기적 착취).</p>
+    <p><span class="lbl">시나리오 A</span> <b>발언권 커먼즈 회의</b> — 공유 토큰 예산을 두고 발언; greedy = 발언 독점 → 예산 고갈.</p>
+    <p><span class="lbl">시나리오 B</span> <b>공유자원-과업 (A2A 현실형)</b> — 각 에이전트가 하위 과업+공유 rate-limited 풀; greedy = 풀 독점 → 타 에이전트 <b>starvation</b>(과업 미완).</p>
+    <p><span class="lbl">방법</span> 같은 에이전트·같은 시드, <b>오직 전략만 다름</b>(A/B). baseline(무규제) vs governed(전략).</p>
+    <p><span class="lbl">지표</span> <b>top_share</b>(최대 점유=greedy, ↓좋음) · <b>Jain</b>(공정성, ↑좋음) · <b>완료율/welfare</b>(과업 완주, ↑좋음) · 시도(요청) vs 부여(granted) 이중 채널.</p>
+    <p><span class="lbl">substrate</span> 거버넌스 = <code>Policy</code> 객체가 각 행동을 intercept(allow/deny/modify/delay). 시나리오 무관(같은 정책이 두 시나리오에 작동).</p>
+  </div>
+
+  <h2>기준선. 발언/자원 할당 (Airtime Quota) <span class="tag impl">구현</span></h2>
+  <div class="card impl">
+    <p class="ana">💡 회의 사회자가 "1인당 발언 한도"를 정하는 것. 메커니즘 디자인(공정 큐잉)의 직접 매핑.</p>
+    <div class="row"><span class="lbl">이론</span> 네트워크 공정 큐잉·max-min fairness (리뷰 §4.2) — 한 플로우가 자기 몫 이상 못 가져가게 보장.</div>
+    <div class="row"><span class="lbl">메커니즘</span> 누적 공정 몫 초과 시 deny, 잔여의 15% 초과 턴은 modify(축약).</div>
+    <div class="row"><span class="lbl">구현</span> <code>policies/10_airtime_quota.py</code> · strict 변형 <code>policies/presets/strict/</code></div>
+    <div class="row"><span class="lbl">결과</span> 시나리오 A(7명): top_share 0.87→<b>0.24</b>, Jain 0.19→<b>0.92</b>, 고갈→생존. 시나리오 B(4명): 완료율 0.25→0.50.</div>
+    <div class="row"><span class="lbl">한계</span> 분배만 보장; 적응성 없음(아래 사회 전략과 cap-null 대조 참조).</div>
+  </div>
+
+  <h2>제안 1. 간접 상호성 + 가십 기반 평판 <span class="tag impl">구현</span></h2>
+  <div class="card impl">
+    <p class="ana">💡 "남을 도우면 그걸 본 제3자가 나중에 나를 돕는다." 평판이 공유지의 비극을 푼다(Milinski, Nature 2002).</p>
+    <div class="row"><span class="lbl">메커니즘</span> 과거 점유에서 평판을 파생(read-only) → 평판 낮을수록 허용량 축소(가십). 매 턴 <code>gossip</code> 이벤트 방송.</div>
+    <div class="row"><span class="lbl">구현</span> <code>policies/presets/social_reputation/25_reputation_gossip.py</code> (단일 기록자 규칙: 정책은 SharedState 불변)</div>
+    <div class="row"><span class="lbl">결과(평판+배제)</span> A: top_share 0.87→<b>0.31</b>, Jain→0.81, 생존. B(자원): 완료율 0.25→<b>0.75</b>.</div>
+    <div class="row"><span class="lbl">한계</span> 가십 신뢰성 가정(거짓 가십), 단명 에이전트는 평판 미축적. 평판이 점유 기반이라 front-load 후 침묵으로 회복 가능(게임 가능).</div>
+  </div>
+
+  <h2>제안 2. 비싼 처벌 + 배제 (Ostracism) <span class="tag impl">구현</span></h2>
+  <div class="card impl">
+    <p class="ana">💡 계속 독점하는 자를 잠시 상호작용에서 빼는 저비용 처벌. 배제는 금전적 처벌보다 순이익까지 높였다(Feinberg 2014).</p>
+    <div class="row"><span class="lbl">이론</span> 공공재 게임 협력은 처벌 없이 유지 어렵다(Fehr &amp; Gächter 2000); '2차 무임승차'를 피하는 대안이 배제.</div>
+    <div class="row"><span class="lbl">메커니즘</span> 평판 임계치(0.45) 미만 에이전트의 턴을 deny(배제). 점유 하락 시 평판 회복 → 자기교정적.</div>
+    <div class="row"><span class="lbl">구현</span> <code>policies/presets/social_reputation/20_ostracism.py</code> (평판 정책과 한 체인에서 결합)</div>
+    <div class="row"><span class="lbl">결과</span> 화면에서 탐욕 에이전트가 <b>빨강(deny)</b>으로 차단됨. 위 평판+배제 수치와 동일.</div>
+    <div class="row"><span class="lbl">한계</span> 배제가 담합에 악용 가능(다수가 정직한 소수를 배제) → 처벌 권한 분산·검증 필요.</div>
+  </div>
+
+  <h2>제안 3. 상위 정체성 + 공동 목표 <span class="tag design">설계</span></h2>
+  <div class="card design">
+    <p class="ana">💡 "우리 대 그들"을 더 큰 하나의 우리로 재범주화. 상위 목표(혼자 못 푸는 공동 과제)가 집단 갈등을 완화(Robbers Cave).</p>
+    <div class="row"><span class="lbl">메커니즘</span> 공유된 상위 정체성·상호의존적 공동 목표 부여 → 개별 효용보다 집단 효용 내재화. "이 행동이 <i>우리가</i> 하는 방식인가?"</div>
+    <div class="row"><span class="lbl">구현 설계</span> <b>프롬프트/페르소나 레벨</b> 메커니즘(정책 intercept가 아님). 본 테스트베드의 <b>에이전트 편집(페르소나)</b> + 공동 보상으로 구현 가능 — (a) 미션을 분해 불가능한 공동 보상으로 묶고 (b) 역할을 상보적·비교불가로 설계.</div>
+    <div class="row"><span class="lbl">상태</span> 정책으로 미구현(다음 단계). 페르소나 입력으로 실 LLM에서 부분 시연 가능.</div>
+    <div class="row"><span class="lbl">⚠️ 한계</span> 정체성 레버는 양날의 검 — 내집단을 만들면 인간을 외집단화할 위험(§역효과).</div>
+  </div>
+
+  <h2>제안 4. 책임성 + 관객 효과 (Accountability) <span class="tag design">설계</span></h2>
+  <div class="card design">
+    <p class="ana">💡 사람은 관찰되고 정당화해야 한다고 느낄 때 더 친사회적이다. 평판은 행동이 관찰·전파될 때만 협력을 끈다.</p>
+    <div class="row"><span class="lbl">메커니즘</span> "관객이 있다"는 신호를 환경에 심고, 행동 직전 <b>공개 정당화</b>를 요구 → 동료·감사자가 평가(제안 1 평판 루프와 폐회로).</div>
+    <div class="row"><span class="lbl">구현 설계</span> 프롬프트에 "이 선택은 가십 로그에 남고 모두가 본다" 맥락 주입 + 각 턴 reason 공개. 본 테스트베드는 이미 <b>대화 보기(프롬프트·출력·전달)</b>와 gossip 이벤트로 관찰 가능성 인프라를 갖춤.</div>
+    <div class="row"><span class="lbl">상태</span> 관찰 인프라는 존재; "공개 정당화 요구" 프롬프트는 미구현(다음 단계).</div>
+    <div class="row"><span class="lbl">한계</span> 관찰 가능성이 은닉 채널(스테가노그래피)로 우회되면 무력화.</div>
+  </div>
+
+  <h2>제안 5. 보편화 추론 (Universalization, Kant) <span class="tag impl">구현</span></h2>
+  <div class="card impl">
+    <p class="ana">💡 "모두가 이렇게 행동하면?" 칸트식 보편화. GovSim에서 지속가능성(생존 시간)을 유의하게 향상.</p>
+    <div class="row"><span class="lbl">메커니즘</span> 이번 요청을 n명이 모두 취하면 커먼즈 초과(=보편화 불가) → 1/n 몫으로 축약.</div>
+    <div class="row"><span class="lbl">구현</span> <code>policies/presets/social_universalization/25_universalization.py</code></div>
+    <div class="row"><span class="lbl">결과</span> A(7명): top_share 0.62, Jain 0.35 — greed는 낮추나 <b>각자 1/n을 허용해 총량은 고갈</b>(가장 약함). B(자원): 완료율 0.75.</div>
+    <div class="row"><span class="lbl">한계</span> 단독으론 약함; 추론 강한 모델이 무임승차하는 역설(Corrupted by Reasoning) → 평판·배제와 결합 필요.</div>
+  </div>
+
+  <h2>제안 6. 조건부 협력 (Conditional Cooperation) <span class="tag impl">구현</span></h2>
+  <div class="card impl">
+    <p class="ana">💡 다수는 조건부 협력자 — 남이 절제하면 나도 절제(Fischbacher 2001). 초기 신뢰 시드가 협력을 점화.</p>
+    <div class="row"><span class="lbl">메커니즘</span> 허용량을 동료 최근 평균 ×1.25로 미러링. 무임승차자는 동료 수준으로 축약.</div>
+    <div class="row"><span class="lbl">구현</span> <code>policies/presets/social_conditional/25_conditional.py</code></div>
+    <div class="row"><span class="lbl">결과</span> A(7명): top_share 0.49, Jain 0.50(중간). B(자원): <b>완료율 0.25 — 효과 0</b>: 선행자(A)가 동료 평균이 없는 1라운드에 다 가져감(first-mover 실패, 정직한 negative).</div>
+    <div class="row"><span class="lbl">한계</span> 한 명의 배신자에도 캐스케이드 붕괴 → 제안 1·2의 평판·배제와 반드시 결합.</div>
+  </div>
+
+  <h2>제안 종합. 통합 스택 (배제 + 평판 + 보편화) <span class="tag impl">구현</span></h2>
+  <div class="card impl">
+    <p class="ana">💡 리뷰 §5.3 — 관찰→가십·평판→규범→제재(배제)→정체성의 폐회로. 개별보다 결합이 강하다.</p>
+    <div class="row"><span class="lbl">구현</span> <code>policies/presets/social_stack/</code> (배제→평판캡→보편화캡 한 체인)</div>
+    <div class="row"><span class="lbl">결과</span> A(7명): top_share <b>0.24</b>, Jain <b>0.93</b>, 생존 — 세 기제 모두 발동, <b>정량 quota와 동일 수준을 순수 사회심리 기제만으로</b> 달성.</div>
+  </div>
+
+  <h2>실험 결과 종합</h2>
+  <h3>시나리오 A — 발언권 커먼즈 (7 에이전트)</h3>
+  <table>
+    <tr><th>전략</th><th>greedy top_share</th><th>Jain</th><th>결과</th></tr>
+    <tr><td>무규제</td><td class="bad">0.87</td><td>0.19</td><td>고갈</td></tr>
+    <tr><td>정량 quota</td><td class="good">0.24</td><td class="good">0.92</td><td>생존</td></tr>
+    <tr><td>제안1+2 평판·배제</td><td>0.31</td><td>0.81</td><td>생존</td></tr>
+    <tr><td>제안6 조건부</td><td>0.49</td><td>0.50</td><td>생존</td></tr>
+    <tr><td>제안5 보편화</td><td>0.62</td><td>0.35</td><td>고갈</td></tr>
+    <tr><td><b>통합 스택</b></td><td class="good">0.24</td><td class="good">0.93</td><td>생존</td></tr>
+  </table>
+  <h3>시나리오 B — 공유자원-과업 (4 에이전트, welfare)</h3>
+  <table>
+    <tr><th>전략</th><th>top_share</th><th>Jain</th><th>과업 완료율</th></tr>
+    <tr><td>무규제</td><td class="bad">0.60</td><td>0.60</td><td class="bad">0.25</td></tr>
+    <tr><td>더미캡(null) / quota</td><td>0.30</td><td>0.97</td><td>0.50</td></tr>
+    <tr><td><b>제안1+2 평판·배제</b></td><td>0.28</td><td>0.98</td><td class="good">0.75</td></tr>
+    <tr><td><b>제안5 보편화</b></td><td>0.27</td><td>0.99</td><td class="good">0.75</td></tr>
+    <tr><td>제안6 조건부</td><td class="bad">0.60</td><td>0.60</td><td class="bad">0.25 (효과0)</td></tr>
+  </table>
+
+  <h2>대조군: cap-null ablation (외부 리뷰 핵심)</h2>
+  <div class="note">
+    <p><b>질문</b>: 사회 정책이 "더미 캡(cap=k·remaining)" 이상을 하는가?</p>
+    <p><b>발견(정직)</b>: ① <b>공정성(top_share/Jain)에서는 더미 캡 = 사회 정책</b> — 공정성 지표만으론 사회 메커니즘을 credit 못 한다.
+    ② <b>그러나 welfare(완료율)에서는 적응형 사회 정책(0.75)이 어떤 정적 캡(0.50)보다 우월</b> — 적응성(풀 보존)이 더 많은 에이전트를 완주시킨다.
+    <b>즉 사회 메커니즘은 캡 산술 이상을 하되, 그 차이는 오직 welfare 지표에서만 드러난다.</b></p>
+    <p>구현 <code>antigreedy/governance/nullcap.py</code> · 테스트 <code>tests/test_cap_null_ablation.py</code> · 상세 <code>docs/external_review.md</code></p>
+  </div>
+
+  <h2>⚠️ 사회 레버의 역효과 (리뷰 §5.4 — 발표 필수)</h2>
+  <div class="warn">
+    사회심리 메커니즘은 그 자체로 새 위험을 만든다:
+    <ul>
+      <li><b>내집단 편향 → 인간 외집단화</b> (When Agents See Humans as the Outgroup)</li>
+      <li><b>동조 → 집단사고·편향 증폭</b> (Group Conformity in MAS)</li>
+      <li><b>사회적 바람직성 편향 → 거짓 합의</b>(유토피아 환상)</li>
+      <li><b>배제의 담합 악용</b> / <b>정체성이 유인을 압도</b>(불안정·조작 가능)</li>
+    </ul>
+    <b>설계 원칙</b>: ① 인간을 항상 같은 내집단에 포함 ② 동조 방지 위한 구조적 다양성·반대역 강제 ③ 평판·배제 권한 분산·검증.
+  </div>
+
+  <h2>남은 과제 (리뷰 기반)</h2>
+  <ul>
+    <li>제안 3·4(상위정체성·책임성)를 페르소나/프롬프트 레벨로 구현하고 실 LLM에서 측정.</li>
+    <li>reputation 피드백 채널 — 평판 신호를 프롬프트에 노출해 <i>attempted</i>(요청) 채널이 실제로 바뀌는지(진짜 행동 변화) 측정.</li>
+    <li>multi-model(GLM·Claude·GPT) × M≥10 시행 + Wilson CI; 역효과(내집단 인간 외집단화) 정량 측정.</li>
+  </ul>
+
+  <p class="sub" style="margin-top:24px">출처: <code>docs/research_2.md</code> 부록 A (전체 링크). 실험 재현: <code>tests/test_*strategies*·test_resource_task·test_cap_null_ablation.py</code>.</p>
+  <a class="back" href="/">← 대시보드</a>
+</div>
+</body>
+</html>

@@ -91,6 +91,21 @@ def test_ws_resource_scenario_streams_completion():
     assert "starved" in gov["data"]["metrics"]
 
 
+def test_governance_doc_serves_strategies_and_results():
+    r = TestClient(_app()).get("/governance")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+    body = r.text
+    # documents each governance proposal from research_2.md §5.2
+    for term in ["간접 상호성", "배제", "상위 정체성", "책임성", "보편화", "조건부 협력", "통합 스택"]:
+        assert term in body, f"missing governance: {term}"
+    # experiment design + measured results present
+    assert "실험 설계" in body and "실험 결과" in body
+    assert "top_share" in body and "완료율" in body
+    assert "cap-null" in body or "cap-null ablation" in body
+    # the dashboard links to it
+    assert "/governance" in TestClient(_app()).get("/").text
+
+
 def test_help_page_serves_definitions():
     r = TestClient(_app()).get("/help")
     assert r.status_code == 200
