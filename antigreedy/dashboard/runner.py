@@ -30,6 +30,7 @@ class ABConfig:
     run_id: str = "ab"
     agents: list[str] = field(default_factory=lambda: ["A", "B", "C", "D"])
     personas: dict[str, str] = field(default_factory=dict)  # per-agent persona (editable from UI)
+    shapers: list[str] = field(default_factory=list)  # 행동(입력)측 거버넌스 (제안③④·평판 되먹임)
     budget: int = 1200      # large enough that GOVERNED survives while baseline collapses
     max_rounds: int = 8
     live_delay: float = 0.6   # per-turn pause in live mode so a human can click mid-run
@@ -79,9 +80,11 @@ async def run_resource_ab(baseline_dir: Path, governed_dir: Path, *, backend: LL
         state = SharedState()
         intercept = InProcessInterceptPoint(PolicyLoader(policy_dir), state)
         stream = EventStream(cfg.run_id, condition, 0, sink=sink)
+        # 행동측 거버넌스(shapers)는 governed 조건에만 적용 → baseline 대비 순수 효과
         tcfg = TaskConfig(run_id=cfg.run_id, condition=condition, agents=list(cfg.agents),
                           personas={a: cfg.personas.get(a, "") for a in cfg.agents},
-                          workload=workload, pool=pool, max_rounds=cfg.max_rounds)
+                          workload=workload, pool=pool, max_rounds=cfg.max_rounds,
+                          shapers=list(cfg.shapers) if condition == "governed" else [])
         out = await run_resource_task(tcfg, backend, intercept, stream, state)
         return condition, {"outcome": out["outcome"],
                            "completion_rate": out["completion_rate"]}
