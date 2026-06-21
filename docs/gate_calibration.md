@@ -53,10 +53,15 @@ settled points"). Row 5 also tried one-sentence neutrals — reverted (it crashe
 
 ## Result of the powered 10v10 (row 7)
 
+> ⚠️ **SUPERSEDED scoring.** The `gate_passed = FALSE` below is the *original* gate
+> (which AND-ed an absolute mock-tuned `baseline_jain < 0.6`). It was replaced by the
+> collapse/fairness split — see **"Criterion redesign"** below, where the SAME recorded
+> run scores **GATE: PASSED**. The README's "GATE PASSED" refers to that current verdict.
+
 ```
 baseline_collapse: 9/10   wilson_lower 0.596 (> 0.5 ✓)   baseline jain 0.625
 governed_flip:    10/10   wilson_lower 0.722 (> 0.5 ✓)   governed jain 0.908
-flip_confirmed = TRUE     collapse_confirmed = FALSE     gate_passed = FALSE
+flip_confirmed = TRUE     collapse_confirmed = FALSE     gate_passed = FALSE   ← original (superseded)
 ```
 
 - **`flip_confirmed = TRUE`** — the governance side is fully, statistically confirmed:
@@ -115,7 +120,8 @@ about real-model behaviour. The mock gate still passes (it has a larger gain).
 
 ```bash
 export OPENROUTER_API_KEY=...   # OpenRouter key
-python -m antigreedy.gate --backend openrouter --model anthropic/claude-3.5-haiku \
+# original sweep used anthropic/claude-3.5-haiku (now 404s) — claude-3-haiku to reproduce
+python -m antigreedy.gate --backend openrouter --model anthropic/claude-3-haiku \
   --episodes 10 --concurrency 4 --budget 4000 --max-rounds 6 --max-tokens 2500
 ```
 

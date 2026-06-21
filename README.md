@@ -77,11 +77,12 @@ Browser e2e (`tests/e2e/`, Playwright) covers all of the above — 12 cases.
 ```bash
 python3.11 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev,a2a,dashboard]"
-pytest -q                                    # 114 passed, ~98% coverage
+pytest -q                                    # 197 passed, 1 skipped
 
 # A-gate (mock = free; openrouter = real LLM, needs OPENROUTER_API_KEY)
 python -m antigreedy.gate  --backend mock
-python -m antigreedy.gate  --backend openrouter --model anthropic/claude-3.5-haiku \
+# note: anthropic/claude-3.5-haiku now 404s on OpenRouter — use claude-3-haiku
+python -m antigreedy.gate  --backend openrouter --model anthropic/claude-3-haiku \
   --episodes 10 --budget 4000 --max-tokens 2500
 
 # Full bench catalog
