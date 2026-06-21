@@ -79,6 +79,19 @@ def test_index_serves_html():
     assert "거버넌스" in body  # the toggle control (Korean UI)
 
 
+def test_help_page_serves_definitions():
+    r = TestClient(_app()).get("/help")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    body = r.text
+    assert "도움말" in body
+    assert "커먼즈" in body and "기만" in body          # commons + deception
+    assert "top_share" in body and "Jain" in body       # formal metrics
+    assert "deceptive(true, reported, tol)" in body      # deception formula
+    # the dashboard links to it
+    assert "/help" in TestClient(_app()).get("/").text
+
+
 def test_index_is_beginner_friendly():
     """E1: a first-time viewer can use every feature without docs — jargon
     glosses, a legend, empty-state guidance, and per-button explanations.

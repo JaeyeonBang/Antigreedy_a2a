@@ -15,6 +15,9 @@
   .titlerow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
   header h1 { font-size:18px; margin:0; }
   .sub { color:var(--mut); font-size:13px; }
+  .helplink { color:#58a6ff; font-size:12.5px; text-decoration:none; border:1px solid #21304a;
+              padding:4px 9px; border-radius:6px; }
+  .helplink:hover { background:#161b22; text-decoration:underline; }
   /* 한눈에 보는 설명 */
   .explain { margin:12px 0 2px; color:var(--ink); font-size:13.5px; max-width:95ch; }
   .explain b { color:#fff; }
@@ -160,6 +163,7 @@
   <div class="titlerow">
     <h1>Antigreedy — 발언권 커먼즈 A/B 시연</h1>
     <span class="sub">같은 에이전트, 같은 시드 — 오직 거버넌스 정책만 다릅니다</span>
+    <a href="/help" target="_blank" class="helplink" title="용어·수식·화면 해설">❓ 도움말 &amp; 정의</a>
     <label class="tgl" title="오른쪽 패널에 거버넌스를 켜고 끕니다" style="margin-left:auto">
       <input type="checkbox" id="gov" checked/> <b>거버넌스</b>
     </label>

@@ -137,9 +137,15 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     governed_policies_dir = editor_dir
     html = (STATIC / "theater.html").read_text(encoding="utf-8")
 
+    help_html = (STATIC / "help.html").read_text(encoding="utf-8")
+
     @app.get("/", response_class=HTMLResponse)
     async def index() -> str:
         return html
+
+    @app.get("/help", response_class=HTMLResponse)
+    async def help_page() -> str:
+        return help_html
 
     @app.get("/config")
     async def config() -> dict:

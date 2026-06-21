@@ -64,6 +64,22 @@ test.describe('E1 — beginner-friendly comprehension UX', () => {
   });
 });
 
+test.describe('Help page — definitions & formulas', () => {
+  test('the header link opens a help page with commons/deception definitions', async ({ page, context }) => {
+    await page.goto('/');
+    const [help] = await Promise.all([
+      context.waitForEvent('page'),
+      page.locator('.helplink').click(),
+    ]);
+    await help.waitForLoadState();
+    await expect(help.locator('h1')).toContainText('도움말');
+    await expect(help.locator('body')).toContainText('커먼즈');
+    await expect(help.locator('body')).toContainText('기만');
+    await expect(help.locator('body')).toContainText('top_share');   // formal metric
+    await expect(help.locator('h2')).toHaveCount(4);
+  });
+});
+
 test.describe('E2 — in-dashboard policy editor (the live wow)', () => {
   test('localhost warning + seeded policy list are shown', async ({ page }) => {
     await page.goto('/');
