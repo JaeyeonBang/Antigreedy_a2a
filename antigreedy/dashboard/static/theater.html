@@ -23,6 +23,22 @@
   .gloss .chip { background:#0d1117; border:1px solid #2a3340; border-radius:8px;
                  padding:7px 11px; font-size:12.5px; color:var(--mut); }
   .gloss .chip b { color:var(--ink); }
+  /* 용어 자세히 — 펼침형 카드 글로서리 */
+  .glossary { margin-top:12px; background:#0d1117; border:1px solid #2a3340; border-radius:8px; }
+  .glossary > summary { cursor:pointer; padding:11px 13px; font-weight:700; color:var(--ink);
+                        list-style:none; user-select:none; font-size:13.5px; }
+  .glossary > summary::-webkit-details-marker { display:none; }
+  .glossary[open] > summary { border-bottom:1px solid #21262d; }
+  .gcards { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+            gap:10px; padding:12px 13px; }
+  .gcard { background:#161b22; border:1px solid #21262d; border-radius:7px; padding:11px 12px; }
+  .gcard h4 { margin:0 0 6px; font-size:13.5px; color:#fff; }
+  .gcard .ana { color:#cdd9e5; font-size:12.5px; margin:0 0 7px; font-style:italic;
+                border-left:2px solid #2f3b49; padding-left:8px; }
+  .gcard p { margin:4px 0; font-size:12.5px; color:var(--mut); line-height:1.5; }
+  .gcard p b { color:#cdd9e5; }
+  .gcard .tag { display:inline-block; min-width:46px; color:#6e7b8a; font-weight:700;
+                margin-right:4px; }
   /* 컨트롤 바 */
   .presetbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:16px; }
   .presetbar label { color:var(--ink); font-size:13.5px; }
@@ -161,6 +177,60 @@
     <span class="chip"><b>발언량(Airtime)</b> = 에이전트가 말한 양. 동그라미가 클수록 발언량이 많습니다.</span>
     <span class="chip"><b>판정(Verdict)</b> = 거버넌스가 한 턴에 한 조치: <span class="v-allow">allow(허용)</span> · <span class="v-modify">modify(축약)</span> · <span class="v-deny">deny(차단)</span>.</span>
   </div>
+
+  <details class="glossary" id="glossary">
+    <summary>📖 용어 자세히 — 커먼즈 · 발언량 · 발언 점유 · 공정성 · 판정 (처음이면 펼쳐보세요)</summary>
+    <div class="gcards">
+      <div class="gcard">
+        <h4>🪙 커먼즈 (Commons · 공유 예산)</h4>
+        <p class="ana">💡 회의실의 공용 화이트보드 잉크 같은 것. 모두가 같은 잉크를 나눠 쓰고, 한 사람이 다 써버리면 남들은 못 씁니다.</p>
+        <p><span class="tag">뜻</span> 모든 에이전트가 말할 때마다 줄어드는 <b>공유 토큰 예산</b>.</p>
+        <p><span class="tag">화면</span> 각 패널 아래 막대 — <b>가득(초록) → 적음(노랑) → 고갈(빨강)</b>. 합의 전에 0이 되면 회의 실패(<b>고갈</b>).</p>
+        <p><span class="tag">왜</span> 이게 "공유지의 비극"의 그 공유지. 탐욕 에이전트가 여기서 예산을 말려버립니다.</p>
+      </div>
+      <div class="gcard">
+        <h4>🗣️ 발언량 (Airtime)</h4>
+        <p class="ana">💡 회의에서 한 사람이 말한 시간의 총합.</p>
+        <p><span class="tag">뜻</span> 각 에이전트가 실제로 <b>전달한 누적 토큰</b>.</p>
+        <p><span class="tag">화면</span> <b>동그라미 크기</b>로 표현 — 클수록 많이 말한 것.</p>
+      </div>
+      <div class="gcard">
+        <h4>📊 발언 점유 (Top share · 독점도)</h4>
+        <p class="ana">💡 "가장 말 많은 한 명이 전체 발언의 몇 %를 가져갔나?"</p>
+        <p><span class="tag">뜻</span> 최대 단일 에이전트의 발언 비중. <b>1.0 = 한 명이 100% 독점</b>.</p>
+        <p><span class="tag">화면</span> 메트릭의 "최대 발언 점유 84%". <b>이게 우리가 측정하는 greedy 지표 — 낮을수록 좋음.</b></p>
+      </div>
+      <div class="gcard">
+        <h4>⚖️ 공정성 (Jain 지수)</h4>
+        <p class="ana">💡 피자 8조각을 8명이 똑같이 나누면 "공정". 한 명이 7조각 먹으면 "불공정".</p>
+        <p><span class="tag">뜻</span> 발언량이 얼마나 고르게 나뉘었는지 <b>0~1로 수치화</b> (1.0 = 완전 균등). 수학적으로 Jain's fairness index.</p>
+        <p><span class="tag">화면</span> "공정성(Jain) 0.99" — <b>0.8↑ 공정 · 0.6~0.8 다소 불균형 · 그 이하 독점적</b>.</p>
+      </div>
+      <div class="gcard">
+        <h4>🚦 판정 (Verdict)</h4>
+        <p class="ana">💡 회의 사회자가 각 발언에 내리는 결정.</p>
+        <p><span class="v-allow">allow(허용)</span> 그대로 통과 · <span class="v-modify">modify(축약)</span> 너무 길어 잘라냄 · <span class="v-deny">deny(차단)</span> 발언권 박탈(배제).</p>
+        <p><span class="tag">화면</span> <b>동그라미 색</b> + 피드의 색 단어로 표시.</p>
+      </div>
+      <div class="gcard">
+        <h4>🆚 베이스라인 vs 거버넌스</h4>
+        <p class="ana">💡 약 안 먹은 그룹(대조군) vs 약 먹은 그룹.</p>
+        <p><span class="tag">왼쪽</span> <b>베이스라인 = 무규제</b> 대조군. <span class="tag">오른쪽</span> <b>거버넌스 = 전략(정책) 적용</b>.</p>
+        <p><span class="tag">왜</span> 같은 에이전트·같은 조건, <b>오직 전략만 다름</b> → 두 패널의 차이가 곧 전략의 효과.</p>
+      </div>
+      <div class="gcard">
+        <h4>😈 greedy (탐욕 · 이기적 독점)</h4>
+        <p class="ana">💡 회의에서 혼자만 계속 떠들어 남들이 말 못 하게 만드는 사람.</p>
+        <p><span class="tag">뜻</span> 한 에이전트가 자기 이익(발언권)을 위해 <b>공유 자원을 독점</b>하는 행동. <b>이 테스트베드가 막으려는 대상.</b></p>
+      </div>
+      <div class="gcard">
+        <h4>🚫 배제 (Ostracism)</h4>
+        <p class="ana">💡 계속 독점하던 사람을 잠시 발언에서 빼는 것 — 사회심리학의 저비용 처벌.</p>
+        <p><span class="tag">뜻</span> 평판이 임계치 미만으로 떨어진 에이전트의 턴을 <b>deny(차단)</b>. 점유가 떨어지면 평판이 회복돼 다시 참여.</p>
+        <p><span class="tag">화면</span> 해당 에이전트가 <b>빨강</b>으로, 피드에 "deny … 차단됨".</p>
+      </div>
+    </div>
+  </details>
 
   <div class="presetbar">
     <label for="preset"><b>거버넌스 프리셋</b></label>

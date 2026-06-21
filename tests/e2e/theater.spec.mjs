@@ -54,6 +54,13 @@ test.describe('E1 — beginner-friendly comprehension UX', () => {
     // per-button help text
     await expect(page.locator('.controls')).toContainText('하는 일');
     await expect(page.locator('.explain')).toContainText('나란히');
+
+    // detailed glossary (UX writing) — expands to per-term cards with analogies
+    await page.locator('#glossary > summary').click();
+    await expect(page.locator('.gcard')).toHaveCount(8);
+    await expect(page.locator('#glossary')).toContainText('공유지의 비극');   // 커먼즈
+    await expect(page.locator('#glossary')).toContainText('Jain 지수');       // 공정성
+    await expect(page.locator('#glossary')).toContainText('독점도');          // 발언 점유
   });
 });
 
