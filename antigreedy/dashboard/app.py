@@ -85,6 +85,9 @@ def _preset_defs(policies_dir: Path) -> list[dict]:
          "dir": Path(policies_dir) / "presets" / "social_universalization"},
         {"name": "social_conditional", "label": "사회: 조건부 협력 (Conditional Cooperation)",
          "dir": Path(policies_dir) / "presets" / "social_conditional"},
+        # 통합 스택: 배제 → 평판 캡 → 보편화 캡 (리서치 §2 Agent Society Governance Stack)
+        {"name": "social_stack", "label": "사회: 통합 스택 (평판+배제+보편화)",
+         "dir": Path(policies_dir) / "presets" / "social_stack"},
     ]
 
 

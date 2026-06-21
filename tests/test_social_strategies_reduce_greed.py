@@ -21,6 +21,7 @@ SOCIAL = {
     "reputation+ostracism": "policies/presets/social_reputation",
     "universalization": "policies/presets/social_universalization",
     "conditional_cooperation": "policies/presets/social_conditional",
+    "social_stack": "policies/presets/social_stack",
 }
 
 
@@ -66,3 +67,20 @@ def test_reputation_policies_emit_gossip_and_ostracism():
     kinds = {e["type"] for e in events}
     assert "gossip" in kinds            # gossip broadcast
     assert "ostracism" in kinds         # the greedy dominator gets ostracised
+
+
+def test_integrated_stack_runs_all_three_mechanisms():
+    # 통합 스택: 배제 + 평판 + 보편화가 한 체인에서 모두 작동
+    events: list[dict] = []
+    stream = EventStream("t", "c", 0, sink=events.append)
+    state = SharedState()
+    intercept = InProcessInterceptPoint(PolicyLoader("policies/presets/social_stack"), state)
+    cfg = MeetingConfig(run_id="t", condition="c", episode=0, agents=AGENTS_7,
+                        personas={a: "" for a in AGENTS_7}, budget=1400, max_rounds=6)
+    asyncio.run(run_episode(cfg, MockBackend(make_meeting_script(dominator="A")),
+                            intercept, stream, state))
+    kinds = {e["type"] for e in events}
+    # the three mechanisms each leave a trace
+    assert "gossip" in kinds and "ostracism" in kinds
+    m = [e for e in events if e["type"] == "episode_end"][0]["data"]["metrics"]
+    assert m["top_share"] < 0.4 and m["jain_delivered"] > 0.75   # strongly governed
