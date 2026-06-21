@@ -29,6 +29,32 @@ def wilson_lower(successes: int, n: int, z: float = 1.96) -> float:
     return (centre - margin) / denom
 
 
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """양측 Wilson score 구간 (lo, hi). 이항 비율의 신뢰구간 — 작은 n에서도 안정적.
+    하한은 wilson_lower와 정확히 일치한다(동일 공식, 부호만 반대)."""
+    if n == 0:
+        return (0.0, 0.0)
+    p = successes / n
+    denom = 1 + z * z / n
+    centre = p + z * z / (2 * n)
+    margin = z * math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)
+    return ((centre - margin) / denom, (centre + margin) / denom)
+
+
+def mean_ci(values: list[float], z: float = 1.96) -> tuple[float, float, float]:
+    """연속값의 (평균, 하한, 상한). 정규근사 CI = mean ± z·SE(평균의 표준오차).
+    n<2면 SE=0 → 폭 0 구간(점추정만). 빈 입력 → (0,0,0)."""
+    n = len(values)
+    if n == 0:
+        return (0.0, 0.0, 0.0)
+    mean = sum(values) / n
+    if n < 2:
+        return (mean, mean, mean)
+    var = sum((v - mean) ** 2 for v in values) / (n - 1)   # 표본분산
+    se = math.sqrt(var / n)
+    return (mean, mean - z * se, mean + z * se)
+
+
 def episode_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Fold one episode's events into its metrics. Pure; replay-consistent."""
     attempted: dict[str, int] = {}

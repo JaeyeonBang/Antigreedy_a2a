@@ -29,6 +29,7 @@ from antigreedy.backends import OpenRouterBackend
 from antigreedy.events import EventStream
 from antigreedy.governance.nullcap import chain_intercept
 from antigreedy.governance.types import SharedState
+from antigreedy.metrics import mean_ci, wilson_interval
 from antigreedy.scenario.resource_task import TaskConfig, run_resource_task
 
 # 탐욕이 창발하도록 만든 self-interested 페르소나 (외부 리뷰: greed는 스크립트가 아니라 창발해야 함)
@@ -58,12 +59,34 @@ async def _one(label: str, shapers: list[str], backend, agents, pool, workload, 
             "starved": len(m["starved"])}
 
 
+def _aggregate(label: str, eps: list[dict]) -> dict:
+    """M개 에피소드 → 점추정 + 신뢰구간. 완료성공률=전원완료 비율(Wilson CI),
+    top_share=평균(정규근사 CI). CI가 baseline과 겹치지 않으면 효과가 유의."""
+    n = len(eps)
+    full = sum(1 for e in eps if e["completion_rate"] >= 0.999)   # 전원 완료한 에피소드
+    p_lo, p_hi = wilson_interval(full, n)
+    t_mean, t_lo, t_hi = mean_ci([e["top_share"] for e in eps])
+    return {"label": label, "n": n, "full_rate": full / n if n else 0.0,
+            "full_lo": p_lo, "full_hi": p_hi,
+            "top_mean": t_mean, "top_lo": t_lo, "top_hi": t_hi}
+
+
+async def _seeded(label, shapers, backend, agents, pool, workload, rounds, seeds) -> dict:
+    """한 조건을 seeds회 동시 실행(temp>0 → 독립 표본) 후 CI로 집계."""
+    eps = await asyncio.gather(*[
+        _one(f"{label}#{i}", shapers, backend, agents, pool, workload, rounds)
+        for i in range(seeds)])
+    return _aggregate(label, eps)
+
+
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="z-ai/glm-4.6")
     ap.add_argument("--agents", type=int, default=4)
     ap.add_argument("--rounds", type=int, default=6)
     ap.add_argument("--pool", type=int, default=None)
+    ap.add_argument("--seeds", type=int, default=1, help="조건당 반복 수(>1이면 CI 출력)")
+    ap.add_argument("--temp", type=float, default=0.7, help="multi-seed 분산용 temperature")
     args = ap.parse_args()
 
     if not os.environ.get("OPENROUTER_API_KEY"):
@@ -73,24 +96,36 @@ async def main() -> None:
     agents = [chr(ord("A") + i) for i in range(args.agents)]
     pool = args.pool or args.agents * 120
     workload = pool // args.agents
-    backend = OpenRouterBackend(model=args.model, temperature=0.3)
 
-    print(f"model={args.model}  agents={args.agents}  pool={pool}  workload={workload}  "
-          f"rounds={args.rounds}")
-    print(f"{'condition':<20} {'top_share':>10} {'jain_att':>9} {'jain_del':>9} "
-          f"{'완료율':>7} {'starved':>8}")
-    print("-" * 70)
-    base_top = None
+    if args.seeds <= 1:
+        backend = OpenRouterBackend(model=args.model, temperature=0.3)
+        print(f"model={args.model}  agents={args.agents}  pool={pool}  workload={workload}  "
+              f"rounds={args.rounds}  (단일 시드)")
+        print(f"{'condition':<20} {'top_share':>10} {'jain_att':>9} {'jain_del':>9} "
+              f"{'완료율':>7} {'starved':>8}")
+        print("-" * 70)
+        base_top = None
+        for label, shapers in CONDITIONS.items():
+            r = await _one(label, shapers, backend, agents, pool, workload, args.rounds)
+            if label == "baseline":
+                base_top = r["top_share"]
+            delta = f"  (Δtop {r['top_share'] - base_top:+.3f})" if base_top and label != "baseline" else ""
+            print(f"{r['label']:<20} {r['top_share']:>10.3f} {r['jain_attempted']:>9.3f} "
+                  f"{r['jain_delivered']:>9.3f} {r['completion_rate']:>7.2f} "
+                  f"{r['starved']:>8}{delta}")
+        return
+
+    # ---- 다중 시드 + 95% 신뢰구간 (N=1 한계 보완) ----
+    backend = OpenRouterBackend(model=args.model, temperature=args.temp)
+    print(f"model={args.model}  agents={args.agents}  pool={pool}  rounds={args.rounds}  "
+          f"seeds={args.seeds}  temp={args.temp}  (95% CI)")
+    print(f"{'condition':<20} {'완료성공률 [95% CI]':>26} {'top_share 평균 [95% CI]':>30}")
+    print("-" * 80)
     for label, shapers in CONDITIONS.items():
-        r = await _one(label, shapers, backend, agents, pool, workload, args.rounds)
-        if label == "baseline":
-            base_top = r["top_share"]
-        delta = ""
-        if base_top and label != "baseline":
-            delta = f"  (Δtop {r['top_share'] - base_top:+.3f})"
-        print(f"{r['label']:<20} {r['top_share']:>10.3f} {r['jain_attempted']:>9.3f} "
-              f"{r['jain_delivered']:>9.3f} {r['completion_rate']:>7.2f} "
-              f"{r['starved']:>8}{delta}")
+        a = await _seeded(label, shapers, backend, agents, pool, workload, args.rounds, args.seeds)
+        full = f"{a['full_rate']:.2f} [{a['full_lo']:.2f},{a['full_hi']:.2f}]"
+        top = f"{a['top_mean']:.3f} [{a['top_lo']:.3f},{a['top_hi']:.3f}]"
+        print(f"{a['label']:<20} {full:>26} {top:>30}")
 
 
 if __name__ == "__main__":
