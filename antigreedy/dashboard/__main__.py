@@ -23,7 +23,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(prog="antigreedy.dashboard")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--model", default="anthropic/claude-3.5-haiku",
+    ap.add_argument("--model", default="anthropic/claude-3-haiku",
                     help="OpenRouter model for the real-LLM backend (if a key is set)")
     args = ap.parse_args()
 
