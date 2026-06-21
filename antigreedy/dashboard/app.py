@@ -54,6 +54,14 @@ def _clamp_budget(b: int) -> int:
     return max(200, min(8000, int(b)))
 
 
+def _shapers(names: object) -> list[str]:
+    """행동(입력)측 거버넌스 선택을 알려진 shaper 이름으로만 필터(견고성/안전)."""
+    from antigreedy.scenario.prompt_shapers import SHAPERS
+    if not isinstance(names, list):
+        return []
+    return [n for n in names if isinstance(n, str) and n in SHAPERS]
+
+
 def _is_local(host: str | None) -> bool:
     """True for loopback callers. The policy editor executes user-supplied
     Python server-side, so writes are gated to the presenter's own machine."""
@@ -277,6 +285,8 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                 if isinstance(msg.get("personas"), dict):  # editable per-agent personas
                     run_cfg = replace(run_cfg, personas={
                         str(k): str(v)[:1000] for k, v in msg["personas"].items()})
+                if msg.get("shapers") is not None:  # 행동(입력)측 거버넌스 (제안③④·평판 되먹임)
+                    run_cfg = replace(run_cfg, shapers=_shapers(msg["shapers"]))
         except asyncio.TimeoutError:
             pass
         except WebSocketDisconnect:

@@ -91,6 +91,33 @@ def test_ws_resource_scenario_streams_completion():
     assert "starved" in gov["data"]["metrics"]
 
 
+def test_ws_resource_applies_shapers_to_governed_prompts_only():
+    """행동(입력)측 거버넌스: WS `shapers` 파라미터가 governed arm의 프롬프트만 재구성하고
+    baseline은 손대지 않는다(순수 대조). 평판 되먹임 cue가 governed 프롬프트에 주입됨."""
+    client = TestClient(_app())
+    received = _run_ws(client, {"mode": "ab", "governed": True, "scenario": "resource",
+                                "n_agents": 3, "shapers": ["reputation_feedback"]})
+    turns = [e for e in received if e["type"] == "turn"]
+    gov = [t for t in turns if t["condition"] == "governed"]
+    base = [t for t in turns if t["condition"] == "baseline"]
+    assert gov and any("REPUTATION FEEDBACK" in t["data"]["prompt"] for t in gov)
+    assert base and all("REPUTATION FEEDBACK" not in t["data"]["prompt"] for t in base)
+
+
+def test_ws_unknown_shaper_is_filtered_out():
+    """모르는 shaper 이름은 무시(견고성) — 크래시 없이 정상 스트림 완료."""
+    client = TestClient(_app())
+    received = _run_ws(client, {"mode": "ab", "governed": True, "scenario": "resource",
+                                "n_agents": 3, "shapers": ["nope", "reputation_feedback"]})
+    assert any(e["type"] == "episode_end" for e in received)
+
+
+def test_index_exposes_behavioral_governance_control():
+    """대시보드가 행동측 거버넌스(shaper) 선택 UI를 노출한다."""
+    body = TestClient(_app()).get("/").text
+    assert "행동" in body and ("평판 되먹임" in body or "reputation_feedback" in body)
+
+
 def test_governance_doc_serves_strategies_and_results():
     r = TestClient(_app()).get("/governance")
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
