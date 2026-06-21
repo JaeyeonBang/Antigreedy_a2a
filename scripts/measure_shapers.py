@@ -72,11 +72,18 @@ def _aggregate(label: str, eps: list[dict]) -> dict:
 
 
 async def _seeded(label, shapers, backend, agents, pool, workload, rounds, seeds) -> dict:
-    """한 조건을 seeds회 동시 실행(temp>0 → 독립 표본) 후 CI로 집계."""
-    eps = await asyncio.gather(*[
+    """한 조건을 seeds회 동시 실행(temp>0 → 독립 표본) 후 CI로 집계. 부분 실패에 견고:
+    일부 에피소드가 실패(예: 크레딧 소진 402)해도 성공분으로 집계하고, 전부 실패하면
+    예외를 올려 호출부가 '실패'로 표시하게 한다(가짜 0으로 위장하지 않음)."""
+    results = await asyncio.gather(*[
         _one(f"{label}#{i}", shapers, backend, agents, pool, workload, rounds)
-        for i in range(seeds)])
-    return _aggregate(label, eps)
+        for i in range(seeds)], return_exceptions=True)
+    eps = [r for r in results if not isinstance(r, BaseException)]
+    if not eps:
+        raise next(r for r in results if isinstance(r, BaseException))
+    agg = _aggregate(label, eps)
+    agg["failed"] = seeds - len(eps)          # 측정 정직성: 누락 표본 수 노출
+    return agg
 
 
 async def main() -> None:
@@ -122,10 +129,16 @@ async def main() -> None:
     print(f"{'condition':<20} {'완료성공률 [95% CI]':>26} {'top_share 평균 [95% CI]':>30}")
     print("-" * 80)
     for label, shapers in CONDITIONS.items():
-        a = await _seeded(label, shapers, backend, agents, pool, workload, args.rounds, args.seeds)
+        try:
+            a = await _seeded(label, shapers, backend, agents, pool, workload,
+                              args.rounds, args.seeds)
+        except Exception as exc:                # 한 조건 전부 실패(예: 402) → 표시하고 계속
+            print(f"{label:<20} {'FAILED':>26} {str(exc)[:46]:>30}")
+            continue
+        miss = f" (n={a['n']}, {a['failed']} 실패)" if a.get("failed") else ""
         full = f"{a['full_rate']:.2f} [{a['full_lo']:.2f},{a['full_hi']:.2f}]"
         top = f"{a['top_mean']:.3f} [{a['top_lo']:.3f},{a['top_hi']:.3f}]"
-        print(f"{a['label']:<20} {full:>26} {top:>30}")
+        print(f"{a['label']:<20} {full:>26} {top:>30}{miss}")
 
 
 if __name__ == "__main__":
