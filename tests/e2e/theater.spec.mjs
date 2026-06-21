@@ -23,6 +23,13 @@ async function runAB(page) {
   await expect(page.locator('#run')).toBeEnabled({ timeout: 30_000 });
 }
 
+// Parse "공정성(Jain) 0.99· 최대 발언 점유 17% ..." → {jain, top}
+function parseMetrics(text) {
+  const jain = parseFloat((text.match(/Jain\)\s*([\d.]+)/) || [])[1]);
+  const top = parseFloat((text.match(/점유\s*(\d+)%/) || [])[1]);
+  return { jain, top };
+}
+
 test.describe('E1 — beginner-friendly comprehension UX', () => {
   test('glossary, legend, empty-state and per-button help are visible', async ({ page }) => {
     await page.goto('/');
@@ -205,6 +212,22 @@ test.describe('Agent count — configurable number of agents', () => {
     const gov = page.locator('#feed-governed');
     await expect(gov).toContainText('C');        // agent C spoke
     await expect(gov).not.toContainText('D');    // no 4th agent in a 3-agent run
+  });
+});
+
+test.describe('Strategy reduces greed — 7 agents', () => {
+  test('with 7 agents, the governed (strategy) side is far less greedy than baseline', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#agents').selectOption('7');          // 7 agents
+    await runAB(page);
+    // both panels report fairness
+    const base = parseMetrics(await page.textContent('#metrics-baseline'));
+    const gov = parseMetrics(await page.textContent('#metrics-governed'));
+    // adding the governance strategy lowers greed (max airtime share) and raises fairness
+    expect(gov.top).toBeLessThan(base.top);          // less monopoly
+    expect(gov.jain).toBeGreaterThan(base.jain);     // fairer
+    expect(base.top).toBeGreaterThan(50);            // baseline really is greedy (>50% to one agent)
+    expect(gov.jain).toBeGreaterThan(0.8);           // governed is fair
   });
 });
 
