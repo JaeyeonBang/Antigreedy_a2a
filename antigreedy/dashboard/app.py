@@ -78,6 +78,13 @@ def _preset_defs(policies_dir: Path) -> list[dict]:
         {"name": "quota", "label": "Airtime quota (default)", "dir": Path(policies_dir)},
         {"name": "strict", "label": "Strict quota (tighter cap)",
          "dir": Path(policies_dir) / "presets" / "strict"},
+        # 사회심리학 기반 전략 (간접 상호성·가십·배제 / 보편화 / 조건부 협력)
+        {"name": "social_reputation", "label": "사회: 평판·가십·배제 (Reputation+Ostracism)",
+         "dir": Path(policies_dir) / "presets" / "social_reputation"},
+        {"name": "social_universalization", "label": "사회: 보편화 (Universalization)",
+         "dir": Path(policies_dir) / "presets" / "social_universalization"},
+        {"name": "social_conditional", "label": "사회: 조건부 협력 (Conditional Cooperation)",
+         "dir": Path(policies_dir) / "presets" / "social_conditional"},
     ]
 
 

@@ -115,8 +115,8 @@ test.describe('Conversation view — see each prompt + output + delivered', () =
 test.describe('Governance presets — swap the governed set', () => {
   test('selecting a preset applies it and changes governed behavior', async ({ page }) => {
     await page.goto('/');
-    // dropdown is populated from /presets
-    await expect(page.locator('#preset option')).toHaveCount(3);
+    // dropdown is populated from /presets (none/quota/strict + 3 social-psych)
+    await expect(page.locator('#preset option')).toHaveCount(6);
 
     // pick "strict" → applied + the strict policy shows in the active list
     await page.locator('#preset').selectOption('strict');
