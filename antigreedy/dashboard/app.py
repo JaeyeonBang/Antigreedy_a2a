@@ -26,7 +26,8 @@ from antigreedy.backends import (
 from antigreedy.dashboard.export import build_standalone_html
 from antigreedy.dashboard.history import HistoryStore
 from antigreedy.dashboard.live import make_live
-from antigreedy.dashboard.runner import ABConfig, run_ab, run_probe
+from antigreedy.dashboard.runner import ABConfig, run_ab, run_probe, run_resource_ab
+from antigreedy.scenario.resource_task import make_task_script
 from antigreedy.events import EventStream
 from antigreedy.scenario.meeting import MeetingConfig, run_meeting
 
@@ -111,6 +112,11 @@ def _default_probe_backend() -> LLMBackend:
     return MockBackend(make_probe_script())
 
 
+def _default_resource_backend() -> LLMBackend:
+    # the resource-task mock: agent A is a greedy hog that grabs the shared pool
+    return MockBackend(make_task_script(greedy_agent="A"))
+
+
 def _default_live_backend() -> LLMBackend:
     # a genuinely greedy hog: big per-turn so governance truncates it the instant it's applied
     return MockBackend(make_meeting_script(dominator="A", verbose_words=2500))
@@ -120,6 +126,7 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                backend_factory: Callable[[], LLMBackend] = _default_backend,
                probe_backend_factory: Callable[[], LLMBackend] = _default_probe_backend,
                live_backend_factory: Callable[[], LLMBackend] = _default_live_backend,
+               resource_backend_factory: Callable[[], LLMBackend] = _default_resource_backend,
                real_backend_factory: Callable[[], LLMBackend] | None = None,
                cfg: ABConfig | None = None,
                editor_enabled: bool = True,
@@ -246,6 +253,7 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         # governance by pointing the "governed" arm at the empty baseline policy
         # set, so both panels collapse — a live add/remove-governance demo.
         mode, governed = "ab", True
+        scenario = "meeting"
         run_cfg = cfg or ABConfig()
         use_real = False
         try:
@@ -253,6 +261,7 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
             if isinstance(msg, dict):
                 mode = msg.get("mode", "ab")
                 governed = bool(msg.get("governed", True))
+                scenario = msg.get("scenario", "meeting")  # meeting | resource
                 # real LLM only when one is configured; otherwise fall back to mock
                 use_real = msg.get("backend") == "real" and real_backend_factory is not None
                 if msg.get("n_agents") is not None:  # configurable agent count
@@ -294,9 +303,15 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
                 sink=sink, cfg=run_cfg))
         else:
             governed_dir = governed_policies_dir if governed else baseline_dir
-            task = asyncio.create_task(run_ab(
-                baseline_dir, governed_dir, backend=ab_factory(),
-                sink=sink, cfg=run_cfg))
+            if scenario == "resource":
+                res_factory = real_backend_factory if use_real else resource_backend_factory
+                task = asyncio.create_task(run_resource_ab(
+                    baseline_dir, governed_dir, backend=res_factory(),
+                    sink=sink, cfg=run_cfg))
+            else:
+                task = asyncio.create_task(run_ab(
+                    baseline_dir, governed_dir, backend=ab_factory(),
+                    sink=sink, cfg=run_cfg))
         try:
             while not (task.done() and queue.empty()):
                 try:

@@ -79,6 +79,18 @@ def test_index_serves_html():
     assert "거버넌스" in body  # the toggle control (Korean UI)
 
 
+def test_ws_resource_scenario_streams_completion():
+    client = TestClient(_app())
+    received = _run_ws(client, {"mode": "ab", "governed": True, "scenario": "resource",
+                                "n_agents": 4})
+    ends = [e for e in received if e["type"] == "episode_end"]
+    assert ends and {e["condition"] for e in ends} == {"baseline", "governed"}
+    # resource scenario reports task completion (welfare), not just airtime
+    gov = next(e for e in ends if e["condition"] == "governed")
+    assert "completion_rate" in gov["data"]["metrics"]
+    assert "starved" in gov["data"]["metrics"]
+
+
 def test_help_page_serves_definitions():
     r = TestClient(_app()).get("/help")
     assert r.status_code == 200

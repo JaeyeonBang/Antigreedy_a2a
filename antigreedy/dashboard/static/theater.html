@@ -237,6 +237,12 @@
   </details>
 
   <div class="presetbar">
+    <label for="scenario"><b>시나리오</b></label>
+    <select id="scenario" title="회의(발언권 독점) 또는 공유자원-과업(자원 독점으로 starvation)">
+      <option value="meeting" selected>회의 — 발언권 커먼즈</option>
+      <option value="resource">공유자원-과업 (A2A 현실형)</option>
+    </select>
+    <span class="sep"></span>
     <label for="preset"><b>거버넌스 프리셋</b></label>
     <select id="preset" title="거버넌스 측에 적용할 미리 만든 정책 세트를 고르세요"></select>
     <span class="sep"></span>
@@ -485,10 +491,19 @@ function renderMetrics(cond, m){
     return `<i title="${a}: ${m.delivered[a]||0} 토큰 (${pct.toFixed(0)}%)" `+
            `style="width:${pct}%;background:${AGENT_COL[i%AGENT_COL.length]}"></i>`;
   }).join('');
+  // 공유자원-과업 시나리오면 완료율/starvation(welfare)을 함께 표시
+  let welfare='';
+  if(typeof m.completion_rate==='number'){
+    const cr=Math.round(m.completion_rate*100);
+    const st=(m.starved&&m.starved.length)?(' · starved: '+m.starved.join(',')):' · 전원 완료';
+    welfare=`<div class="row"><span class="fair" style="color:${fairColor(m.completion_rate)}">과업 완료율 ${cr}%</span><span>${st}</span></div>`;
+  }
+  const shareLabel=(typeof m.completion_rate==='number')?'자원 점유':'발언 점유';
   el.innerHTML=
+    welfare+
     `<div class="row"><span class="fair" style="color:${fairColor(j)}">공정성(Jain) ${j.toFixed(2)}</span>`+
-    `<span>· 최대 발언 점유 ${top}% · ${j>=0.8?'공정':j>=0.6?'다소 불균형':'독점적'}</span></div>`+
-    `<div class="row"><span style="min-width:82px">발언 점유</span><span class="mbar">${bars}</span></div>`;
+    `<span>· 최대 ${shareLabel} ${top}% · ${j>=0.8?'공정':j>=0.6?'다소 불균형':'독점적'}</span></div>`+
+    `<div class="row"><span style="min-width:82px">${shareLabel}</span><span class="mbar">${bars}</span></div>`;
   el.classList.add('show');
 }
 function clearMetrics(cond){ const el=document.getElementById('metrics-'+cond);
@@ -543,7 +558,8 @@ function startRun(mode){
   const ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
   const personas=collectPersonas();
   const backend=document.getElementById('backend').value;
-  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents, budget:budget, personas:personas, backend:backend}));
+  const scenario=document.getElementById('scenario').value;
+  ws.onopen=()=>ws.send(JSON.stringify({mode, governed:govOn, n_agents:nAgents, budget:budget, personas:personas, backend:backend, scenario:scenario}));
   ws.onmessage=(m)=>{ const ev=JSON.parse(m.data);
     if(ev.type==='done'){ ws.close(); restoreBtns(); endLive(); loadHistory(); return; }
     handle(ev); };

@@ -61,6 +61,36 @@ async def run_ab(baseline_dir: Path, governed_dir: Path, *, backend: LLMBackend,
     return dict(pairs)
 
 
+async def run_resource_ab(baseline_dir: Path, governed_dir: Path, *, backend: LLMBackend,
+                          sink: Callable[[dict], None] | None = None,
+                          cfg: ABConfig | None = None) -> dict[str, Any]:
+    """Resource-task A/B: same shape as run_ab but the scenario is the realistic
+    shared-resource task (agents compete for a rate-limited pool to finish their
+    subtasks; greed = hogging it and starving others). Pool = cfg.budget; each
+    agent's workload = pool / N (fair sharing finishes all, a hog starves others)."""
+    from antigreedy.scenario.resource_task import TaskConfig, run_resource_task
+
+    cfg = cfg or ABConfig()
+    n = len(cfg.agents)
+    pool = cfg.budget
+    workload = max(1, pool // n)
+
+    async def one(condition: str, policy_dir: Path) -> tuple[str, dict[str, Any]]:
+        state = SharedState()
+        intercept = InProcessInterceptPoint(PolicyLoader(policy_dir), state)
+        stream = EventStream(cfg.run_id, condition, 0, sink=sink)
+        tcfg = TaskConfig(run_id=cfg.run_id, condition=condition, agents=list(cfg.agents),
+                          personas={a: cfg.personas.get(a, "") for a in cfg.agents},
+                          workload=workload, pool=pool, max_rounds=cfg.max_rounds)
+        out = await run_resource_task(tcfg, backend, intercept, stream, state)
+        return condition, {"outcome": out["outcome"],
+                           "completion_rate": out["completion_rate"]}
+
+    pairs = await asyncio.gather(one("baseline", baseline_dir),
+                                 one("governed", governed_dir))
+    return dict(pairs)
+
+
 async def run_probe(policy_dir: Path, *, backend: LLMBackend,
                     sink: Callable[[dict], None] | None = None,
                     cfg: ABConfig | None = None, probe: str = "A",

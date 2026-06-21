@@ -238,6 +238,22 @@ test.describe('Agent count — configurable number of agents', () => {
   });
 });
 
+test.describe('Resource-task scenario — completion/starvation', () => {
+  test('the resource scenario shows task completion and governance improves it', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#scenario').selectOption('resource');
+    await page.locator('#agents').selectOption('4');
+    await runAB(page);
+    // welfare readout appears (not just airtime)
+    await expect(page.locator('#metrics-governed')).toContainText('과업 완료율');
+    await expect(page.locator('#metrics-baseline')).toContainText('과업 완료율');
+    // governance is less greedy on resource consumption than baseline
+    const base = parseMetrics(await page.textContent('#metrics-baseline'));
+    const gov = parseMetrics(await page.textContent('#metrics-governed'));
+    expect(gov.top).toBeLessThan(base.top);
+  });
+});
+
 test.describe('Strategy reduces greed — 7 agents', () => {
   test('with 7 agents, the governed (strategy) side is far less greedy than baseline', async ({ page }) => {
     await page.goto('/');
