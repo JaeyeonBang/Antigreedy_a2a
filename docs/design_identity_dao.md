@@ -20,6 +20,8 @@
 ## 2. 문헌 배경 (Literature Background)
 
 > 표기: [V]=2026-06 웹 검증, [K]=지식 기반(미검증, 인용 전 확인 필요), [F]=기존 `research_2.md` 수록.
+>
+> 📖 **리뷰논문급 상세본:** 아래는 요약이며, 각 선행논문의 요지·메커니즘/수식·흐름·구체 방안을 5요소로 상세 분석한 전문은 [`related_work.md`](related_work.md)에 있다(QV/QF · 평판/원장 · 정체성 3축, 25+ 논문).
 
 ### 2.1 Quadratic Voting / Funding과 "주의(attention) 배분"
 
