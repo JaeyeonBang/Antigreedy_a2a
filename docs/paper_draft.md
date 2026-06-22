@@ -170,7 +170,10 @@ social" story.
 
 Two effects survive a controlled, corrected test:
 1. **Superordinate identity reduces monopoly** (top-share 0.65→0.41, p_holm<.001) — though its welfare
-   effect is null (p=.43). This is the one input lever with a robust behavioral signal.
+   effect is null (p=.43). It is the one input lever with a robust behavioral signal — but we hold it to
+   the *same* skepticism that demoted reputation_feedback: superordinate has **no anchoring control of its
+   own** (§7), so part of this reduction could be generic instruction-following rather than identity per
+   se. We report it as a robust-but-**undecomposed** effect, not as proof that identity framing works.
 2. **Output "social" policy reduces welfare** vs no governance (0.66→0.39, p_holm=.022), and is
    indistinguishable from a dumb proportional cap on fairness (p=.13). The "social" machinery is, on this
    scenario, a relabeled rate-limiter that also costs welfare.
