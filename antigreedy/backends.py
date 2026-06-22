@@ -49,7 +49,7 @@ class OpenRouterBackend:
 
     def __init__(self, model: str, api_key: str | None = None,
                  temperature: float = 0.3, timeout: float = 60.0,
-                 max_retries: int = 3) -> None:
+                 max_retries: int = 3, reasoning_enabled: bool = False) -> None:
         self.model = model
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
         if not self.api_key:
@@ -57,6 +57,9 @@ class OpenRouterBackend:
         self.temperature = temperature
         self.timeout = timeout
         self.max_retries = max_retries
+        # GLM/reasoning models bill hidden reasoning tokens at the OUTPUT rate; for short
+        # instruction-following we disable it by default to cut cost (OpenRouter `reasoning`).
+        self.reasoning_enabled = reasoning_enabled
 
     async def complete(self, prompt: str, max_tokens: int) -> CompletionResult:
         import httpx
@@ -66,6 +69,8 @@ class OpenRouterBackend:
             "max_tokens": max_tokens,
             "temperature": self.temperature,
         }
+        if not self.reasoning_enabled:
+            payload["reasoning"] = {"enabled": False}  # don't pay for thinking tokens
         headers = {"Authorization": f"Bearer {self.api_key}"}
         last_exc: Exception | None = None
         for attempt in range(self.max_retries):

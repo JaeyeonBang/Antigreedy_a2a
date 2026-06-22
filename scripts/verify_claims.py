@@ -371,7 +371,7 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue", "phase_d"])
-    ap.add_argument("--model", default="z-ai/glm-4.6")
+    ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
     ap.add_argument("--rounds", type=int, default=8)
