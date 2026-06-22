@@ -140,7 +140,8 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
                                        progress[agent], pool_left(), n, round_no)
             # 행동(입력)측 거버넌스: SharedState를 read-only로 읽어 프롬프트를 재구성(제안③④·평판)
             shaper_ctx = {"n": n, "fair": max(1, pool_left() // n), "pool_left": pool_left(),
-                          "round_no": round_no, "workload": cfg.workload}
+                          "round_no": round_no, "workload": cfg.workload,
+                          "agents": list(cfg.agents)}  # Phase D emergent_identity needs full roster
             prompt = apply_shapers(cfg.shapers, agent, state, prompt, shaper_ctx)
             raw = (await backend.complete(prompt, cfg.workload * 2))["text"]
             requested = max(0, parse_request(raw))

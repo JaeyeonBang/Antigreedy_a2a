@@ -325,9 +325,52 @@ async def run_welfare_rescue(backend, seeds, agents, workload, rounds, model, te
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_phase_d(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """Phase D (design §3.4): *창발* 정체성 vs *부과* 정체성. V6에서 유일 생존한 효과는 부과된
+    'ONE TEAM' 배너(superordinate)였다 — 그게 '정체성'인가 '지시'인가? 정체성을 관측 행동에서
+    *창발*시킨(emergent_identity) 뒤, 부과형(superordinate)·길이대조(neutral_filler)·무규제(none)와
+    공통 baseline에서 비교한다. 핵심: emergent가 none 대비 독점을 줄이는가(부과 효과 재현?),
+    그리고 emergent ≈ imposed인가(정체성이 효과 → 출처 무관) vs ≠(지시/길이가 효과)."""
+    print(f"\n=== Phase D: 창발 vs 부과 정체성 (공통 baseline, N={seeds}, {agents}ag, rounds={rounds}) ===")
+    arms_spec = [
+        ("none", _intercept_none, []),
+        ("imposed", _intercept_none, ["superordinate_identity"]),   # 부과 (V6 생존 효과)
+        ("emergent", _intercept_none, ["emergent_identity"]),        # ★ 창발 (Phase D)
+        ("neutral_filler", _intercept_none, ["neutral_filler"]),     # 길이/지시성 대조
+    ]
+    arms = {}
+    for name, ib, sh in arms_spec:
+        a = await _seeded(name, ib, sh, agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        print(f"{name:<14} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    contrasts = [
+        ("top emergent vs none (창발이 독점 줄이나)", C["emergent"]["top_raw"], C["none"]["top_raw"]),
+        ("welfare emergent vs none", C["emergent"]["comp_raw"], C["none"]["comp_raw"]),
+        ("top emergent vs imposed (창발≈부과?)", C["emergent"]["top_raw"], C["imposed"]["top_raw"]),
+        ("welfare emergent vs imposed", C["emergent"]["comp_raw"], C["imposed"]["comp_raw"]),
+        ("top imposed vs none (V6 재현)", C["imposed"]["top_raw"], C["none"]["top_raw"]),
+        ("top emergent vs neutral_filler (길이 이상인가)", C["emergent"]["top_raw"], C["neutral_filler"]["top_raw"]),
+    ]
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    print("\n--- 순열검정 + Holm (유의 = p_adj<0.05) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<40} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "phase_d", "config": {"model": model, "temp": temp, "agents": agents,
+            "pool": pool, "workload": workload, "rounds": rounds, "seeds": seeds},
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("experiment", choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue"])
+    ap.add_argument("experiment",
+                    choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue", "phase_d"])
     ap.add_argument("--model", default="z-ai/glm-4.6")
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -356,6 +399,8 @@ async def main():
         res = await run_phase_a(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "welfare_rescue":
         res = await run_welfare_rescue(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "phase_d":
+        res = await run_phase_d(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 

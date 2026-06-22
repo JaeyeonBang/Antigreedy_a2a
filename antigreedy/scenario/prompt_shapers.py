@@ -113,12 +113,23 @@ def neutral_filler(agent: str, state: SharedState, base_prompt: str, ctx: dict) 
     return banner + base_prompt
 
 
+def emergent_identity(agent: str, state: SharedState, base_prompt: str, ctx: dict) -> str:
+    """Phase D — *창발* 정체성 (design §3.4). superordinate_identity가 고정 "ONE TEAM"을
+    *부과*한다면, 이건 관측된 행동에서 군집을 *창발*시켜(누가 누구와 비슷하게 점유했나) 정체성을
+    데이터로 명시한다. 클러스터러는 순수 파이썬 stand-in(Leiden 자리표시자, deps 부재).
+    부과형과 동일한 상위 목표(전원 완료)를 달아 둘을 직접 비교(정체성이 효과인가 지시가 효과인가)."""
+    from antigreedy.scenario.reputation_identity import identity_frame
+    agents = ctx.get("agents") or sorted({a for a, _, _ in state.turn_log} | {agent})
+    return identity_frame(agent, state, list(agents)) + base_prompt
+
+
 SHAPERS: dict[str, Shaper] = {
     "superordinate_identity": superordinate_identity,
     "accountability": accountability,
     "reputation_feedback": reputation_feedback,
     "fairshare_anchor": fairshare_anchor,
     "neutral_filler": neutral_filler,
+    "emergent_identity": emergent_identity,
 }
 
 
