@@ -24,6 +24,7 @@ from antigreedy.backends import OpenRouterBackend
 from antigreedy.events import EventStream
 from antigreedy.governance.intercept import InProcessInterceptPoint
 from antigreedy.governance.loader import PolicyLoader
+from antigreedy.governance.concentration_cap import ConcentrationCapPolicy
 from antigreedy.governance.nullcap import FractionCapPolicy, chain_intercept
 from antigreedy.governance.types import SharedState
 from antigreedy.metrics import mean_ci, wilson_interval
@@ -45,6 +46,13 @@ def _intercept_dumbcap(state):
 
 def _intercept_social(state):
     return InProcessInterceptPoint(PolicyLoader(SOCIAL_DIR), state)
+
+
+def _intercept_conc(curve):
+    """Phase A (design §3.1): concentration-cap with a flat/linear/quad weight curve.
+    k=0.22 matches dumb_cap so cap_flat IS the dumb cap — a clean within-family control."""
+    return lambda state: chain_intercept(
+        [ConcentrationCapPolicy(curve=curve, k=0.22, floor=30)], state)
 
 
 async def _one(name, intercept_builder, shapers, agents, pool, workload, rounds, backend) -> dict:
@@ -211,9 +219,53 @@ async def run_v6(backend, seeds, agents, pool, workload, rounds, model, temp):
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_phase_a(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """Phase A (design_identity_dao.md §5): does the *curve* matter? Common-baseline
+    4-arm test of flat vs linear vs quadratic concentration pricing — same harness,
+    bootstrap CI + permutation + Holm. H1: quad improves the fairness/welfare frontier
+    over linear/flat; null risk (V6-style): quad ≈ flat means it is a relabeled cap."""
+    print(f"\n=== Phase A: 곡선 검정 (flat/linear/quad concentration cap, "
+          f"공통 baseline, N={seeds}, {agents}ag, rounds={rounds}) ===")
+    arms_spec = [
+        ("none", _intercept_none, []),
+        ("cap_flat", _intercept_conc("flat"), []),       # == dumb cap (control)
+        ("cap_linear", _intercept_conc("linear"), []),   # existing gossip curve (control)
+        ("cap_quad", _intercept_conc("quad"), []),        # ★ QV convex pricing
+    ]
+    arms = {}
+    for name, ib, sh in arms_spec:
+        a = await _seeded(name, ib, sh, agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        print(f"{name:<12} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    contrasts = [
+        ("top quad vs none", C["cap_quad"]["top_raw"], C["none"]["top_raw"]),
+        ("welfare quad vs none", C["cap_quad"]["comp_raw"], C["none"]["comp_raw"]),
+        ("top quad vs flat (curve beats cap?)", C["cap_quad"]["top_raw"], C["cap_flat"]["top_raw"]),
+        ("top quad vs linear (Weyl: 2nd beats 1st?)", C["cap_quad"]["top_raw"], C["cap_linear"]["top_raw"]),
+        ("welfare quad vs linear", C["cap_quad"]["comp_raw"], C["cap_linear"]["comp_raw"]),
+        ("top linear vs flat", C["cap_linear"]["top_raw"], C["cap_flat"]["top_raw"]),
+        ("welfare quad vs flat", C["cap_quad"]["comp_raw"], C["cap_flat"]["comp_raw"]),
+    ]
+    raw_p = [(lab, permutation_p(a, b)) for lab, a, b in contrasts]
+    adjusted = holm(raw_p)
+    print("\n--- 순열검정 + Holm 보정 (유의 = p_adj<0.05) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<44} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "phase_a", "config": {"model": model, "temp": temp, "agents": agents,
+            "pool": pool, "workload": workload, "rounds": rounds, "seeds": seeds},
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("experiment", choices=["v1", "v4", "v5", "v6"])
+    ap.add_argument("experiment", choices=["v1", "v4", "v5", "v6", "phase_a"])
     ap.add_argument("--model", default="z-ai/glm-4.6")
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -238,6 +290,8 @@ async def main():
         res = await run_v5(backend, args.seeds, agents, pool, workload)
     elif args.experiment == "v6":
         res = await run_v6(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "phase_a":
+        res = await run_phase_a(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 
