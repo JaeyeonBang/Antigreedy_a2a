@@ -168,6 +168,16 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     async def governance_page() -> str:
         return governance_html
 
+    report_path = Path(__file__).resolve().parent.parent.parent / "docs" / "paper_report.html"
+
+    @app.get("/report", response_class=HTMLResponse)
+    async def report_page() -> str:
+        """V6 논문 리포트(한국어 + 차트). 히스토리 위젯이 /history 와 직접 연동된다."""
+        if report_path.exists():
+            return report_path.read_text(encoding="utf-8")
+        return ("<h1>리포트가 아직 생성되지 않았습니다</h1>"
+                "<p><code>.venv/bin/python scripts/build_paper_html.py</code> 를 먼저 실행하세요.</p>")
+
     @app.get("/config")
     async def config() -> dict:
         return {"real_available": real_backend_factory is not None}

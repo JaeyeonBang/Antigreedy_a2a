@@ -165,8 +165,63 @@ def build_charts(data):
             f'<div class="grid2">{welfare}{top}</div>{contrasts}</section>')
 
 
+# ───────────────────── 대시보드 연동 위젯 (라이브 · 히스토리) ─────────────────────
+# 대시보드(FastAPI)에서 /report 로 서빙되면 같은 출처의 /history 를 직접 읽어
+# 과거 run 노드를 나열하고 각 run 의 export.html 로 연결한다. file:// 로 열면
+# 서버가 없으므로 안내만 표시한다(우아한 강등).
+DASHBOARD_WIDGET = """
+<section class="dash" id="dash">
+  <p class="dnote">이 리포트의 V6 수치는 배치 스크립트(<code>scripts/verify_claims.py</code>)에서
+  나온 것이고, 아래 <b>라이브/히스토리</b>는 대시보드에서 사람이 직접 돌린 A/B run 들이다.
+  같은 <code>resource-task</code> 시나리오·같은 출력/입력 레버를 쓰므로, 표의 각 조건을
+  <b>직접 눈으로 재현</b>해 볼 수 있다.</p>
+  <div class="dbtns">
+    <a class="dbtn live" href="/" target="_blank" rel="noopener">▶ 라이브 시어터 열기 (A/B 실행)</a>
+    <a class="dbtn" href="/governance" target="_blank" rel="noopener">거버넌스 설명</a>
+    <a class="dbtn" href="/history" target="_blank" rel="noopener">/history (원시 JSON)</a>
+  </div>
+  <h3 class="dh">과거 실험 노드 (히스토리)</h3>
+  <div id="dhist" class="dhist"><span class="dhint">불러오는 중…</span></div>
+</section>
+<script>
+(function(){
+  var box = document.getElementById('dhist');
+  if (location.protocol === 'file:') {
+    box.innerHTML = '<span class="dhint">📁 지금은 파일로 열려 있어 히스토리를 못 가져옵니다. '
+      + '대시보드 서버에서 <code>/report</code> 로 열면 과거 run 이 여기에 직접 연결됩니다 '
+      + '(<code>python -m antigreedy.dashboard</code>).</span>';
+    return;
+  }
+  fetch('/history').then(function(r){return r.json();}).then(function(d){
+    var runs = (d && d.runs) || [];
+    if (!runs.length){ box.innerHTML = '<span class="dhint">아직 저장된 run 이 없습니다. '
+      + '라이브 시어터에서 한 번 실행하면 여기에 노드로 쌓입니다.</span>'; return; }
+    var html = '<table class="dtab"><thead><tr><th>run id</th><th>mode</th>'
+      + '<th>요약</th><th>열기</th></tr></thead><tbody>';
+    runs.forEach(function(run){
+      var s = run.summary || {};
+      var parts = [];
+      if (s.top_share != null) parts.push('top ' + Number(s.top_share).toFixed(2));
+      if (s.completion_rate != null) parts.push('welfare ' + Number(s.completion_rate).toFixed(2));
+      html += '<tr><td><code>' + (run.id||'') + '</code></td><td>' + (run.mode||'-')
+        + '</td><td>' + (parts.join(' · ') || '-') + '</td>'
+        + '<td><a href="/history/' + encodeURIComponent(run.id)
+        + '/export.html" target="_blank" rel="noopener">▶ 리플레이</a></td></tr>';
+    });
+    box.innerHTML = html + '</tbody></table>';
+  }).catch(function(){
+    box.innerHTML = '<span class="dhint">히스토리 엔드포인트(/history)에 연결하지 못했습니다.</span>';
+  });
+})();
+</script>
+"""
+
+
 # ───────────────────────── 초경량 Markdown → HTML ─────────────────────────
+# 순서 중요: 링크 먼저(원문 인용 연결) → code → bold → italic.
 _INLINE = [
+    (re.compile(r"\[([^\]]+)\]\(([^)]+)\)"),
+     r'<a href="\2" target="_blank" rel="noopener">\1</a>'),
     (re.compile(r"`([^`]+)`"), r"<code>\1</code>"),
     (re.compile(r"\*\*([^*]+)\*\*"), r"<strong>\1</strong>"),
     (re.compile(r"(?<!\*)\*([^*]+)\*(?!\*)"), r"<em>\1</em>"),
@@ -204,9 +259,26 @@ def md_to_html(md):
         if not s:
             i += 1
             continue
+        if s.startswith("```"):  # 펜스 코드블록 (수식/알고리즘)
+            i += 1
+            buf = []
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                buf.append(lines[i])
+                i += 1
+            i += 1  # 닫는 ``` 소비
+            out.append(f"<pre><code>{html.escape(chr(10).join(buf))}</code></pre>")
+            continue
         if s == "---":
             out.append("<hr>")
             i += 1
+            continue
+        if s.startswith(">"):  # 블록인용 → 용어/주의 callout
+            buf = []
+            while i < len(lines) and lines[i].strip().startswith(">"):
+                buf.append(re.sub(r"^>\s?", "", lines[i].strip()))
+                i += 1
+            inner = "<br>".join(_inline(b) if b else "" for b in buf)
+            out.append(f'<blockquote>{inner}</blockquote>')
             continue
         m = re.match(r"^(#{1,4})\s+(.*)", s)
         if m:
@@ -252,8 +324,31 @@ em{color:#cdd9e5;font-style:italic;}
 strong{color:#fff;}
 code{background:var(--card);border:1px solid #2a3340;border-radius:5px;
   padding:1px 6px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#a5d6ff;}
+pre{background:#0a0d12;border:1px solid #2a3340;border-radius:8px;padding:13px 15px;
+  overflow-x:auto;margin:12px 0;}
+pre code{background:none;border:0;padding:0;color:#cdd9e5;font-size:12.5px;line-height:1.6;}
 hr{border:0;border-top:1px solid var(--line);margin:24px 0;}
-a{color:#58a6ff;}
+a{color:#58a6ff;text-decoration:none;}
+a:hover{text-decoration:underline;}
+blockquote{margin:14px 0;padding:12px 15px;background:var(--card);
+  border:1px solid #2a3340;border-left:3px solid #d29922;border-radius:8px;
+  color:#cdd9e5;font-size:13.5px;line-height:1.65;}
+blockquote strong{color:#fff;}
+/* 대시보드 연동 */
+.dash{background:var(--card);border:1px solid #2a3340;border-radius:12px;
+  padding:16px 18px 20px;margin:18px 0;}
+.dnote{font-size:13px;color:var(--mut);margin:2px 0 12px;}
+.dbtns{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+.dbtn{background:#161b22;border:1px solid #30363d;border-radius:7px;
+  padding:8px 14px;font-size:13px;color:var(--ink);font-weight:600;}
+.dbtn:hover{background:#1b222c;text-decoration:none;}
+.dbtn.live{background:#1f6feb;border-color:#1f6feb;color:#fff;}
+.dh{font-size:14px;color:#cdd9e5;margin:6px 0 8px;}
+.dhist{font-size:13px;}
+.dhint{color:#6e7b8a;}
+.dtab{width:100%;border-collapse:collapse;font-size:12.5px;}
+.dtab th,.dtab td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;}
+.dtab th{background:#11161d;color:#fff;}
 table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;
   background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
 th,td{padding:8px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
@@ -310,6 +405,10 @@ def main():
         body = body.replace(marker, marker + "\n" + charts, 1)
     else:
         body = charts + body
+
+    # 대시보드 연동 위젯을 부록 B 자리표시자에 주입
+    if "<p>DASHBOARD_WIDGET</p>" in body:
+        body = body.replace("<p>DASHBOARD_WIDGET</p>", DASHBOARD_WIDGET, 1)
 
     cfg = data["config"]
     meta = (f'모델 {cfg["model"]} · 온도 {cfg["temp"]} · 에이전트 {len(cfg["agents"])} · '
