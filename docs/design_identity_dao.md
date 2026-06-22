@@ -26,10 +26,10 @@
 ### 2.1 Quadratic Voting / Funding과 "주의(attention) 배분"
 
 - **QV 기초.** 표를 v개 살 때 비용 = v²; 한계비용이 선형이 되어 *강도(intensity)*를 진실하게 드러낸다. Lalley & Weyl, *Quadratic Voting*, 2015 [V]; Lalley & Weyl, AEA P&P 2018, [aeaweb 10.1257/pandp.20181002](https://www.aeaweb.org/articles?id=10.1257/pandp.20181002) [V]. **핵심 정당화:** Weyl, *The Robustness of Quadratic Voting*, Public Choice 2017 — 투표 가격규칙이 robustly 최적인 것은 **오직 2차일 때뿐** ([SSRN 2571012](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2571012)) [V]. 소수 참가자에선 효율성이 *점근적*일 뿐이라는 한계: *Nash Equilibria for QV*, [arXiv 1409.0264](https://arxiv.org/pdf/1409.0264) [V].
-- **고정예산 QV = "발언 예산"의 올바른 형식화.** *Fixed-budget and Multiple-issue Quadratic Voting*, [arXiv 2409.06614](https://arxiv.org/abs/2409.06614), 2024 — 에이전트마다 *동일 크레딧 예산*을 여러 이슈에 배분하며, 동기로 **"multi-agent resource allocation"과 "attention allocation"을 명시**한다. **우리 아이디어의 가장 가까운 선행연구** → QV-for-attention은 *완전히* 새롭지 않다(정직한 포지셔닝). [V, 단 본문 정확 문구는 PDF 직접 확인 권장]
+- **고정예산 QV = "발언 예산"의 올바른 형식화.** *Fixed-budget and Multiple-issue Quadratic Voting*, [arXiv 2409.06614](https://arxiv.org/abs/2409.06614)(Georgescu·Fox·Gautier·Wooldridge), 2024 — 에이전트마다 *동일 크레딧 예산*을 여러 이슈에 2차 비용으로 배분. **우리 발언세의 직접 조상**(고정예산 다이슈 QV). **정정[V]:** PDF 전문 검증 결과 본문에 **"attention allocation"은 없다**(응용=기업/블록체인 거버넌스·설문·국민투표) → QV를 *주의·발언권*에 적용한 명시적 선행은 *없으며*, 우리 응용 신규성은 처음 평가보다 *더 강하다*.
 - **QF(자금판)과 Sybil.** Buterin, Hitzig & Weyl, *Liberal Radicalism*, [arXiv 1809.06421](https://arxiv.org/abs/1809.06421) [V]; 영향력이 *서로 다른 신원 수*에 초선형으로 커져 **Sybil(신원 분할)이 지배적 공격** — 오케스트레이터가 하위 에이전트를 쉽게 스폰하는 에이전트 환경에선 인간 DAO보다 *더* 위험(BlockScience, *How to Attack and Defend QF*) [V].
 - **선례.** *FedQV* (연합학습에서 QV 가중) — QV가 투표함 밖에서 쓰인 전례 [V]. 네트워크 경제학의 *볼록 혼잡 가격(convex congestion pricing)*은 대역폭에 이미 적용됨(우리의 발언세와 동형) [V].
-- **갭/포지셔닝:** *발언권 혼잡 가격으로서의 QV*는 전용 논문이 없으나 2409.06614가 그 직관을 이미 언급. → 신규성은 **메커니즘 자체가 아니라 "LLM 에이전트 airtime에 대한 anti-greedy 적용 + 에이전트 고유 Sybil 위협모델"**에 둔다.
+- **갭/포지셔닝(정정):** *발언권 혼잡 가격으로서의 QV*는 **전용 선행 논문이 없다**(2409.06614도 본문에 attention allocation 부재 — 웹 검증). → 신규성은 **메커니즘 자체가 아니라 "LLM 에이전트 airtime에 대한 anti-greedy 적용 + 에이전트 고유 Sybil 위협모델 + V6식 통제 실험"**에 둔다(적용 신규성은 처음 평가보다 견고).
 
 ### 2.2 평판 시스템 · 탈중앙 원장 · DID · LLM 에이전트 평판
 
@@ -37,14 +37,14 @@
 - **온체인 평판·탈중앙 신원(강한 선행연구).** DeSoc/Soulbound Token(비양도 신원), Weyl·Ohlhaver·Buterin 2022, [SSRN 4105763](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4105763) [V]; W3C DID-Core [V]; **A2A + 원장 고정 신원 + x402**, [arXiv 2507.19550](https://arxiv.org/html/2507.19550) [V]; **ERC-8004 "Trustless Agents"**(에이전트 온체인 평판 레지스트리) [V]. → "온체인 에이전트 평판 원장"은 *이미 존재*; 우리 신규성은 거기 있지 않다.
 - **LLM 에이전트 평판.** DRF(동적 평판 필터 + UCB 선택), [arXiv 2509.05764](https://arxiv.org/pdf/2509.05764) [V]; **skill-conditional 평판 공격**, [arXiv 2606.14200](https://arxiv.org/abs/2606.14200) — 교차-스킬 *평판 세탁*이 라우터를 장악(라우팅 후회 0→0.94), 방어는 예산제한적이며 **Sybil 불가능성을 상속** [V].
 - **LLM-as-judge 신뢰성(우리 judge가 LLM이므로 핵심).** *LLMs Cannot Reliably Judge (Yet?)*, [arXiv 2506.09443](https://arxiv.org/html/2506.09443v1) [V]; *The Silent Judge*(미공개 shortcut 편향), [arXiv 2509.26072](https://arxiv.org/pdf/2509.26072) [V]; + 기존 CoT 불성실 인용(Baker 2025, Anthropic 2505.05410) [F].
-- **불변성 ↔ 회복 갈등(우리 중심 위험).** GDPR↔블록체인 불변성, [arXiv 2210.04541](https://arxiv.org/pdf/2210.04541) [V]; redactable/chameleon-hash 체인, [arXiv 1907.07099](https://arxiv.org/pdf/1907.07099) [V; 제목·출처 검증]. → 잘못된 judge 판정이 *영구·전파*되면 갱생 불가 → Beta형 *시간 감쇠* 또는 redactable 설계 필요.
+- **불변성 ↔ 회복 갈등(우리 중심 위험).** GDPR↔블록체인 불변성, [arXiv 2210.04541](https://arxiv.org/pdf/2210.04541) [V]; redactable/chameleon-hash 원전 **Ateniese et al., *Redactable Blockchain*, IEEE EuroS&P 2017** ([ePrint 2016/757](https://eprint.iacr.org/2016/757)) [V; 정정 — 1907.07099는 chameleon-hash 원전이 아니라 Politou et al. *Blockchain Mutability* 서베이였음]. → 잘못된 judge 판정이 *영구·전파*되면 갱생 불가 → Beta형 *시간 감쇠* 또는 redactable 설계 필요.
 - **갭:** "**단일 elder가 rule+LLM을 융합해 유일 기록자로 쓰고, 원장을 프롬프트 메모리에 복제**"는 선행 대비 미탐구 조합. 단 *불변성 + LLM-judge 오류*의 상호작용은 누구도 연구 안 한 열린 갭.
 
 ### 2.3 창발적 사회 정체성 · 인상 형성 · 평판 클러스터링
 
 - **정체성 기초.** 최소집단 패러다임(임의 범주화만으로 내집단 편향), Tajfel 1971 [V]; 자기범주화 이론(범주화→탈개인화·동조·고정관념), Turner et al. 1987 [V]. *논문 인용은 Tajfel & Turner 1979 원전을 쓸 것*(현 코퍼스는 2차 출처) [V].
 - **빠른 인상 채널의 근거.** 고정관념 내용 모델(SCM: warmth·competence 2축, **warmth(의도)를 먼저** 판단), Fiske et al. JPSP 2002 [V]; 중심특질 게슈탈트(warm/cold), Asch 1946 [V]. → "이 에이전트가 greedy한가?"는 **저-warmth(착취 의도) 스냅 판단** = 우리 LLM-gestalt 채널의 원리적 특징공간.
-- **컨벤션/창발(핵심 벤치마크).** 사회적 법칙(*오프라인 설계*=부과형), Shoham & Tennenholtz 1995 [V]; **창발적 사회 컨벤션 + 집단 편향 in LLM 인구**, Ashery·Aiello·Baronchelli, *Science Advances* 2025, [arXiv 2410.08948](https://arxiv.org/abs/2410.08948) — 탈중앙 LLM 집단이 자발적으로 컨벤션에 수렴, 개인이 무편향이어도 *집단 편향 창발*, 소수 임계질량이 전복 [V]. *창발이 더 단순한 동역학으로 환원될 수 있다는 경고*, [arXiv 2505.23796](https://arxiv.org/pdf/2505.23796) [V; 제목 확인 요].
+- **컨벤션/창발(핵심 벤치마크).** 사회적 법칙(*오프라인 설계*=부과형), Shoham & Tennenholtz 1995 [V]; **창발적 사회 컨벤션 + 집단 편향 in LLM 인구**, Ashery·Aiello·Baronchelli, *Science Advances* 2025, [arXiv 2410.08948](https://arxiv.org/abs/2410.08948) — 탈중앙 LLM 집단이 자발적으로 컨벤션에 수렴, 개인이 무편향이어도 *집단 편향 창발*, 소수 임계질량이 전복 [V]. *창발이 관측상 데이터 누출과 구분 불가하다는 경고* — **Barrie & Törnberg, *Emergent LLM behaviors are observationally equivalent to data leakage*, [arXiv 2505.23796](https://arxiv.org/abs/2505.23796)** [V; 제목 정정].
 - **클러스터링 도구.** Louvain(모듈성 최적화), Blondel et al. 2008, [arXiv 0803.0476](https://arxiv.org/abs/0803.0476) [V]; **Leiden(연결성 보장, Louvain의 단점 수정)**, Traag et al. 2019 — *정체성 클러스터엔 Leiden 사용*(단절 클러스터 방지) [V]. 우리 [`graphify`](research_2.md) 커뮤니티 검출을 재사용 가능.
 - **2-속도 인지 비유.** System 1/2, Kahneman 2011 [V] → 빠른 인상=S1, 느린 원장=S2.
 - **갭/신규성:** (a) *부과* 정체성(Shoham–Tennenholtz, 우리 "ONE TEAM" 배너) 대 *창발* 정체성(평판 그래프 모듈성에서 도출) — 선행 없음; (b) *대칭 조정* 컨벤션(Ashery 네이밍게임) 대 *비대칭 평가/스크리닝* 컨벤션(greedy 판별); (c) 이중채널 정체성 갱신. **신규성은 새 현상이 아니라 *조합 + 스크리닝 용도*에 있다**(정직).

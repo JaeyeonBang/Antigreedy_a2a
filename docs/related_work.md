@@ -60,7 +60,7 @@
 
 **(d) 흐름.** *투표함*의 QV를 **예산-제약 자원 배분**으로 옮긴, *우리 발언세의 직접 조상*. 우리 `Σ_j m_ij² ≤ B`는 "이슈 k"를 "대상 j"로 바꾼 *동형*.
 
-**(e) 우리 관련 + 방안 (가장 중요).** **정직한 포지셔닝의 근거.** 2409.06614는 동기에서 자원 배분(그리고 "attention allocation" [확인 필요 — PDF 직접 확인])을 *이미 거명* → **"QV-for-attention"은 우리 발명이 아니다.** 방안: ① 수식 골격(예산 B, 2차 차감, 다대상) 채택; ② 그들의 담합·Nash 분석을 우리 세탁/Sybil 위협(A.5)과 접목; ③ 차별점을 *예산의 고정점*에 — 예산을 **비양도 신원(SBT/DID)에 고정 + 평판 가중(`/rep_i`)**.
+**(e) 우리 관련 + 방안 (가장 중요).** **포지셔닝 — 웹 검증으로 정정됨(2026-06).** 2409.06614(Georgescu·Fox·Gautier·Wooldridge)는 *고정예산 다이슈 QV*의 가장 가까운 선행이지만, **본문에 "attention allocation"이 없다** — PDF 전문(58,590자) 검증 결과 generic "turn our attention to..." 한 번뿐이고, 명시된 응용은 *기업·블록체인 거버넌스·설문·국민투표*다. 따라서 **QV를 *주의/발언권* 배분에 적용한 명시적 선행 논문은 없으며**, 우리 응용 신규성은 처음 평가보다 *오히려 강하다*(기능적으로 가장 가까운 선례는 FedQV의 평판-가중 예산, A.6). 방안: ① 수식 골격(예산 B, 2차 차감, 다대상) 채택; ② 그들의 담합·Nash 분석을 우리 세탁/Sybil 위협(A.5)과 접목; ③ 차별점을 *예산의 고정점*에 — 예산을 **비양도 신원(SBT/DID)에 고정 + 평판 가중(`/rep_i`)**.
 
 ### A.5 Buterin, Hitzig & Weyl, *Liberal Radicalism / Quadratic Funding* (arXiv 1809.06421, 2018) — 자금판 QV와 *지배적 공격으로서의 Sybil*
 
@@ -93,9 +93,9 @@
 
 **더 나쁜 Sybil.** 모든 보호가 "1 신원 = 1 예산"에 의존하는데, **LLM 에이전트는 신원 분할 비용이 사실상 0** → 같은 메커니즘이 인간 사회보다 *질적으로 더* 취약. 방어는 **(i) 예산-비양도 신원 고정 + (ii) 평판 가중 + (iii) 비대칭 스크리닝**의 삼중 설계 필수.
 
-**정직한 갭.** "주의 배분으로서의 QV"는 우리 신규성이 아니다(2409.06614가 이미 거명, FedQV가 평판-가중 예산까지 검증). 기여는 **세 적용**에 한정: ① anti-greedy *발언권*에의 적용; ② 에이전트 고유 Sybil 위협모델; ③ V6식 통제 실험 환원. **주장하면 안 되는 것**: (i) 자기-집중형 `1/(1+o²)`=진짜 QV; (ii) n=3에서 QV가 효율을 예측; (iii) QV가 *은폐된* 전략적 탐욕(스테가노 공모)을 막음.
+**정직한 갭(정정됨).** *메커니즘*(고정예산 2차 비용)은 선행이 있다(2409.06614). 그러나 **"주의·발언권 배분으로서의 QV"를 명시한 선행 논문은 없다**(2409.06614 본문에 attention allocation 부재 — 웹 검증). 가장 가까운 *기능적* 선례는 FedQV의 평판-가중 예산. 기여는 **세 적용**에 한정: ① anti-greedy *발언권*에의 적용; ② 에이전트 고유 Sybil 위협모델; ③ V6식 통제 실험 환원. **주장하면 안 되는 것**: (i) 자기-집중형 `1/(1+o²)`=진짜 QV; (ii) n=3에서 QV가 효율을 예측; (iii) QV가 *은폐된* 전략적 탐욕(스테가노 공모)을 막음.
 
-> **검증 메모.** Lalley&Weyl 2015/2018, Weyl 2017, 1409.0264(저자 정정·비효율∝1/n), 2409.06614(저자·multi-agent resource allocation·담합), QF `(Σ√c_i)²`/SSRN 3243656, FedQV=2401.01168(평판-가중 예산) 모두 [V]. **[확인 필요]:** 2409.06614 본문 "attention allocation" 정확 문구; BlockScience *How to Attack and Defend QF* 서지.
+> **검증 메모(2026-06 웹 검증, 모두 [V]).** Lalley&Weyl 2015/2018; Weyl 2017; 1409.0264(저자=Lalley&Weyl 본인·비효율∝1/n); 2409.06614(Georgescu·Fox·Gautier·Wooldridge; 응용=기업/블록체인 거버넌스·설문·국민투표 — **본문에 "attention allocation" 없음**, 정정); QF `(Σ√c_i)²`/SSRN 3243656; FedQV=2401.01168(평판-가중 예산); BlockScience *How to Attack and Defend QF*(Liu·Bernardineli·Emmett, 2021, [blog.block.science](https://blog.block.science/how-to-attack-and-defend-quadratic-funding/)). 미해결 항목 없음.
 
 ---
 
@@ -151,7 +151,7 @@
 **(c) 결과.** **"온체인 에이전트 평판 원장"은 이미 존재·표준화 중** → §2.2 "우리 신규성은 거기 없다"가 성립.
 **(d) 흐름.** *온체인 단계의 현재 최전선*. 미개척지는 **온체인 × LLM-판정의 교차점** — 우리 자리.
 **(e) 우리 관련 + 방안.** *차이를 날카롭게*: 선행이 하는 것(온체인 신원, append-only 평판, 결제-책임)은 신규 아님. 우리가 다른 것: (i) *분산 피드백*이 아니라 **단일 rule+LLM 엘더**, (ii) 블록체인이 아니라 **프롬프트 메모리 복제**(목적=인지적 가시성 q↑, not 영속성), (iii) 평판을 *결제*가 아니라 **창발 정체성·greedy 스크리닝**에. 방안: "복제 원장"을 ERC-8004 *평판 레지스트리의 프롬프트-네이티브 변종*으로 포지셔닝(동일 인터페이스로 후속 온체인 이식 경로 유지); 단 온체인 처리량 한계로 *실험은 프롬프트-복제*가 정당.
-링크: [2507.19550](https://arxiv.org/html/2507.19550) · ERC-8004 [확인 필요: EIP 상태].
+링크: [2507.19550](https://arxiv.org/html/2507.19550) · [ERC-8004 "Trustless Agents" (EIP, 상태: **Draft**, 2025-08 제안)](https://eips.ethereum.org/EIPS/eip-8004) — 에이전트 신원·평판·검증 레지스트리 [V].
 
 ### B.7 *Skill-Conditional Reputation Attack* (arXiv 2606.14200) — 평판 세탁, 라우팅 후회 0→0.94
 **(a) 요지.** 우리 위협모델의 *결정적 최신 선행연구*. 스킬별 역량이 다른 에이전트에 작업을 라우팅할 때 **스킬-조건부 신뢰**를 쓰면 *교차-스킬 증거 차용*이 데이터 효율을 사지만, 그 채널이 **평판 세탁 통로**가 됨.
@@ -169,13 +169,13 @@
 **(e) 우리 관련 + 방안 — 핵심 위험 #2.** §3.2·§4 "rule-only 대조 필수". 방안: `ledger_rule`(α=1) vs `ledger_elder`(α<1)로 엘더가 *rule-only를 유의하게 넘는가 vs 앵커링/잡음만 더하는가* 검정; 적대 robustness 측정; `evidence_hash` 강제+근거-판정 괴리 감사; 조작 탐지 시 *α→1 런타임 폴백*.
 링크: [2506.09443](https://arxiv.org/html/2506.09443v1) · [2509.26072](https://arxiv.org/pdf/2509.26072).
 
-### B.9 *GDPR vs Blockchain Immutability* (2210.04541) + redactable chains (1907.07099) — 불변성↔회복의 긴장
+### B.9 *GDPR vs Blockchain Immutability* (2210.04541; Politou 1907.07099) + redactable chains (Ateniese 2017) — 불변성↔회복의 긴장
 **(a) 요지.** *우리 설계의 중심 위험.* (i) 블록체인 불변성과 GDPR "잊힐 권리"가 근본 충돌(새겨진 판정의 삭제·정정 불가); (ii) **편집가능 블록체인(chameleon-hash)**: 권한자가 체인 무결성을 깨지 않고 내용 수정/삭제(불변성의 통제된 예외).
 **(b) 수식.** **카멜레온 해시**: 트랩도어 키 tk 보유자만 H(m,r)=H(m',r') 충돌쌍을 효율적으로 찾음 → 블록 m을 m'으로 바꾸되 *동일 해시* 유지(후속 체인 안 깨짐). 일반 사용자엔 충돌 저항, tk 보유자엔 충돌 가능 → "**불변하되 권한자에 한해 편집가능**"(거버넌스·임계서명으로 tk 분산).
 **(c) 결과.** *순수* 불변성은 *회복 가능성*과 양립 불가; redactable은 절충점이나 *수정 권한 중앙화* 새 위험(tk를 누가 쥐는가 = 사전신뢰 집합 문제 재림).
 **(d) 흐름.** 온체인이 남긴 미해결 부채 — "불변 평판"이 *갱생·정정·법준수*를 막는다는 역청구서.
 **(e) 우리 관련 + 방안 — 핵심 위험 #3, *진짜 신규 갭*.** §2.2 카스트화가 이 절 × B.2(decay) 교차점. **누구도 연구 안 한 갭**: *불변성 × LLM-심판 오류* — **틀린 엘더 판정이 불변 원장에 새겨져 모든 프롬프트로 영구·전파되면(q→1이 오히려 독) 갱생 불가 자기실현적 카스트**. 이중 안전: 계층1 **Beta 감쇠 뷰**(기록 영구·영향 감쇠 λ<1); 계층2 **redactable/chameleon-hash 만료**(임계서명 tk 위원회 분산); 계층3 **rule-only 폴백**(α→1로 불변 LLM 기록 비활성화). 검정: λ=1(순수 불변)에서 low-rep 회복률→0(카스트 재현), λ<1/redact에서 회복률 상승 red-green.
-링크: [2210.04541](https://arxiv.org/pdf/2210.04541) · 1907.07099 [확인 필요: 정확 서지].
+링크: [GDPR↔불변성 2210.04541](https://arxiv.org/pdf/2210.04541) · Politou et al., *Blockchain Mutability: Challenges and Proposed Solutions*, [arXiv:1907.07099](https://arxiv.org/abs/1907.07099)(서베이 — *chameleon-hash 원전이 아님*, 정정) · **카멜레온-해시 redactable 원전: Ateniese, Magri, Venturi & Andrade, *Redactable Blockchain — Rewriting History in Bitcoin and Friends*, IEEE EuroS&P 2017** ([ePrint 2016/757](https://eprint.iacr.org/2016/757)).
 
 ### B.10 종합 — 신규성의 정직한 경계와 세 load-bearing 위험
 
@@ -191,7 +191,7 @@
 
 **관통 원칙:** 세 위험은 모두 *"평판을 너무 강하게·영구히·한 판정자에게 의존"*에서 옴. 세 완화책(decay·redactable·rule-only)은 *영구성·집중·LLM 의존*을 완화하는 동일 철학의 세 손잡이. V6 교훈대로 *각 완화책을 단독·대조·파라미터 스윕*으로 검정.
 
-> **검증 메모.** 2606.14200 [V]. **[확인 필요]:** Jøsang&Ismail 2002 호스팅 URL; ERC-8004 EIP 상태; **1907.07099 정확 서지**(chameleon-hash redactable 계열 다수 존재, 인용 전 대조).
+> **검증 메모(2026-06 웹 검증).** 2606.14200, EigenTrust 2003, Nowak–Sigmund 1998(DOI 10.1038/31225), Resnick–Zeckhauser 2002, DeSoc/SSRN 4105763, 2506.09443/2509.26072 모두 [V]. 정정: **Jøsang & Ismail 2002 = Bled eConference 2002, pp.41–55** ([aisel.aisnet.org/bled2002/41](https://aisel.aisnet.org/bled2002/41/)); **ERC-8004 = Draft**; **1907.07099 = Politou et al. *Blockchain Mutability* 서베이**(chameleon-hash 원전 아님 → Ateniese 2017/ePrint 2016/757로 교체). 미해결 항목 없음.
 
 ---
 
@@ -205,7 +205,7 @@
 **(c) 결과.** 범주화 → 내집단 편향이 *충분조건*.
 **(d) 흐름.** 궤적의 *기점* — 정체성은 강력하나 "위험할 정도로 값싸게" 형성. *창발* 정체성을 군집에서 자라낼 때 **라벨 부여 순간 최소집단 효과 자동 점화** 가능.
 **(e) 우리 관련 + 방안.** 방안: **위약 군집(placebo) 대조군** — 평판 무관 *무작위* 라벨을 같은 형식으로 주입해 "스크리닝 효과가 평판 정보 때문인가 vs 단순 라벨링(최소집단) 때문인가" 분리(V6 앵커링 교훈 동형); **인간을 항상 같은 내집단에** 포함(경계 정렬 방지).
-> *인용:* 논문엔 **Tajfel & Turner (1979), "An Integrative Theory of Intergroup Conflict"** 원전 인용(현 코퍼스는 2차 출처). [확인 필요: DOI/페이지]
+> *인용(검증됨):* **Tajfel & Turner (1979), "An Integrative Theory of Intergroup Conflict," in Austin & Worchel (eds.), *The Social Psychology of Intergroup Relations*, pp. 33–47, Brooks/Cole** + **Tajfel (1970), "Experiments in Intergroup Discrimination," *Scientific American* 223(5):96–102, [DOI 10.1038/scientificamerican1170-96](https://doi.org/10.1038/scientificamerican1170-96)** [V].
 
 ### C.2 Turner et al., 자기범주화이론(1987)
 **(a) 요지.** SIT를 *인지 과정*으로 확장. 자신을 집단 성원으로 범주화하면 집단 **원형(prototype)** 에 동화되는 **탈개인화(depersonalization)** → 동조·고정관념.
@@ -264,10 +264,10 @@
 ### C.9 (주의) 창발의 단순 동역학 환원 가능성 — arXiv 2505.23796
 **(a) 요지.** "창발적" 행동이 *겉보기보다 단순한 동역학으로 환원* 가능하다는 경고. V6 *서명적 교훈*("그럴듯한 사회적 기제가 실은 단순 캡/숫자 앵커")과 동형.
 **(b) 메커니즘.** "창발" 귀속엔 입증 책임 — 진짜 새 집단 동역학인가 vs 개별 휴리스틱·프롬프트 편향·척도 산물인가.
-**(c) 결과.** [확인 필요 — 제목·주장 원문 검증]. 함의: *창발 주장엔 환원-불가능성 증거 동반 필수*.
+**(c) 결과(검증됨).** 정확 주장: 창발처럼 보이는 LLM 행동이 *관측상 **데이터 누출(data leakage)**과 구분 불가* — 즉 memorized/leaked 학습데이터로 환원될 수 있다(더 단순한 동역학의 한 구체형). 함의: *창발 주장엔 환원-불가능성(데이터 누출 배제) 증거 동반 필수*.
 **(d) 흐름.** 궤적 전체에 *반증 가능성 가드레일*.
 **(e) 우리 관련 + 방안 — 환원 배제 프로토콜.** §7 "인과 스크리닝인가 상관인가" 수용. 방안: (i) **위약 군집 대조**(무작위 라벨이 같은 효과면 환원); (ii) **모듈성 Q 귀무검정**(재배선 무작위 그래프 Q 분포와 순열검정); (iii) **인과 검정**(라벨 주입을 개입으로, 라벨→행동 vs 행동→라벨 시간순 분리). 셋 다 V6 방법론(공통 baseline·순열·Holm)에 얹음.
-링크: [arXiv 2505.23796](https://arxiv.org/abs/2505.23796) [확인 필요: 제목].
+링크: **Barrie & Törnberg, *Emergent LLM behaviors are observationally equivalent to data leakage*, [arXiv 2505.23796](https://arxiv.org/abs/2505.23796)** [V].
 
 ### C.10 종합 — 세 신규성 축과 정직한 단서
 **신규성 축 1 — 창발 vs 부과 정체성.** 부과 극(Shoham–Tennenholtz, V6 "ONE TEAM"), 우리=평판 그래프 *모듈성에서 자라난* 정체성(Leiden). V6 superordinate 효과를 *부과/창발 두 팔*로 분해 — 평판 클러스터링에서 *창발 정체성으로 부과 효과를 분해*하는 조합은 미탐구.
@@ -276,4 +276,4 @@
 **새 위험 — 카스트화(research_2 §5.4 목록에 없음).** *자기범주화(C.2)로 동화 → Ashery 집단 편향(C.6) 전파 → Asch 게슈탈트 고착(C.4) → 배제 → 회복 불가 → 자기실현적 카스트.* 우리 ostracism은 "자기교정적(배제→회복)"인데 **불변 원장이 교정 경로를 끊음** → "기록 영구·영향력 감쇠"(가변 뷰)로 대응, *low-rep 회복률*을 일급 종속변수로.
 **정직한 단서.** 원시는 모두 기성품(최소집단·자기범주화·SCM·Asch·Louvain/Leiden·Ashery·Shoham–Tennenholtz). **새 현상·새 알고리즘 주장 안 함** — 신규성은 *조합+용도*((창발 정체성)×(평가/스크리닝)×(이중 채널))를 anti-greedy 비대칭 문제에 적용한 것. 그마저 C.9 경고대로 *위약 군집·모듈성 귀무·인과 검정*으로 환원 불가를 입증한 뒤에만 유효(V6 규율의 정체성-축 적용).
 
-> **검증 메모.** SCM·Asch·Shoham–Tennenholtz·Louvain/Leiden·Ashery(2410.08948)·Kahneman [V]. **[확인 필요]:** Tajfel&Turner 1979·Tajfel 1970 원전 서지; Turner 1987 원전; arXiv 2505.23796 제목·주장.
+> **검증 메모(2026-06 웹 검증, 모두 [V]).** SCM(Fiske 2002)·Asch 1946·Shoham–Tennenholtz 1995·Louvain/Leiden·Ashery(2410.08948)·Kahneman. 정정 완료: Tajfel&Turner 1979(pp.33–47, Brooks/Cole)·Tajfel 1970(Sci.Am. 223(5):96–102)·Turner et al. 1987(Basil Blackwell)·**2505.23796 = Barrie & Törnberg, "…observationally equivalent to data leakage"**. 미해결 항목 없음.
