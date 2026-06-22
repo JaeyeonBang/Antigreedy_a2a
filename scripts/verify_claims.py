@@ -278,31 +278,44 @@ async def run_welfare_rescue(backend, seeds, agents, workload, rounds, model, te
                  ("cap_quad", _intercept_conc("quad"))]
     print(f"\n=== Welfare-rescue 스윕 (N={seeds}, {n}ag, workload={workload}, rounds={rounds}) ===")
     cells = {}
+    truncated = None
     for rlabel, s in regimes:
         pool = max(1, int(s * n * workload))
         print(f"\n-- regime {rlabel}: pool={pool} (demand={n * workload}, slack={pool - n * workload}) --")
         for aname, ib in arm_specs:
-            a = await _seeded(f"{aname}@{rlabel}", ib, [], agents, pool, workload, rounds, backend, seeds)
+            try:  # a dead cell (e.g. all seeds 402) must NOT discard completed cells
+                a = await _seeded(f"{aname}@{rlabel}", ib, [], agents, pool, workload, rounds, backend, seeds)
+            except BaseException as exc:  # noqa: BLE001 — persist partial, then stop
+                truncated = f"{aname}@{rlabel}: {type(exc).__name__}: {exc}"
+                print(f"  !! {aname}@{rlabel} 전체 시드 실패 → 부분 결과 저장 후 중단\n     {truncated}")
+                break
             a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
             cells[f"{rlabel}|{aname}"] = a
             print(f"  {aname:<9} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
                   f"  top {a['top_mean']:.3f}  n={a['n']}")
+        if truncated:
+            break
 
     # primary family: per regime, does a cap change welfare vs none? (sign = rescue or hurt)
+    # only fully-completed regimes (all of none/cap_flat/cap_quad present) enter the family
     contrasts = []
     for rlabel, _ in regimes:
+        if f"{rlabel}|none" not in cells:
+            continue
         none = cells[f"{rlabel}|none"]
         for cap in ("cap_flat", "cap_quad"):
+            if f"{rlabel}|{cap}" not in cells:
+                continue
             c = cells[f"{rlabel}|{cap}"]
             delta = c["comp_mean"] - none["comp_mean"]
             contrasts.append((f"welfare {cap} vs none @ {rlabel} (Δ={delta:+.2f})",
                               c["comp_raw"], none["comp_raw"]))
-    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts]) if contrasts else []
     print("\n--- 순열검정 + Holm (welfare cap−none; +Δ=구함, −Δ=해침) ---")
     for lab, p, padj, sig in adjusted:
         print(f"  [{'SIG' if sig else ' ns'}] {lab:<52} p={p:.4f}  p_holm={padj:.4f}")
 
-    return {"experiment": "welfare_rescue",
+    return {"experiment": "welfare_rescue", "truncated": truncated,
             "config": {"model": model, "temp": temp, "agents": n, "workload": workload,
                        "rounds": rounds, "seeds": seeds},
             "regimes": [{"label": r, "scarcity": s, "pool": max(1, int(s * n * workload))}
