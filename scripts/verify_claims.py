@@ -263,9 +263,58 @@ async def run_phase_a(backend, seeds, agents, pool, workload, rounds, model, tem
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_welfare_rescue(backend, seeds, agents, workload, rounds, model, temp):
+    """Welfare-rescue sweep (plan review winner): is V6's 'caps hurt welfare' config-bound?
+    Sweep scarcity s = pool/(n*workload) across abundant -> catastrophic regimes and ask
+    whether ANY cap *rescues* welfare where ungoverned greed starves everyone. The decisive
+    result is the INTERACTION: does sign(welfare_cap - welfare_none) flip with scarcity?
+    Caps fold in as a secondary factor (flat==dumb cap, quad==convex) so a curve-null is
+    still informative. completion_rate is all-or-nothing per agent, so watch for the trap:
+    in scarcity, fair-sharing may give everyone partial (0 completions) while greed yields
+    one winner -> caps could hurt MORE, not rescue. Either way it sharpens the paper's caveat."""
+    n = len(agents)
+    regimes = [("tight_s1.0", 1.0), ("scarce_s0.5", 0.5), ("catastrophic_s0.33", 0.33)]
+    arm_specs = [("none", _intercept_none), ("cap_flat", _intercept_conc("flat")),
+                 ("cap_quad", _intercept_conc("quad"))]
+    print(f"\n=== Welfare-rescue 스윕 (N={seeds}, {n}ag, workload={workload}, rounds={rounds}) ===")
+    cells = {}
+    for rlabel, s in regimes:
+        pool = max(1, int(s * n * workload))
+        print(f"\n-- regime {rlabel}: pool={pool} (demand={n * workload}, slack={pool - n * workload}) --")
+        for aname, ib in arm_specs:
+            a = await _seeded(f"{aname}@{rlabel}", ib, [], agents, pool, workload, rounds, backend, seeds)
+            a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+            cells[f"{rlabel}|{aname}"] = a
+            print(f"  {aname:<9} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+                  f"  top {a['top_mean']:.3f}  n={a['n']}")
+
+    # primary family: per regime, does a cap change welfare vs none? (sign = rescue or hurt)
+    contrasts = []
+    for rlabel, _ in regimes:
+        none = cells[f"{rlabel}|none"]
+        for cap in ("cap_flat", "cap_quad"):
+            c = cells[f"{rlabel}|{cap}"]
+            delta = c["comp_mean"] - none["comp_mean"]
+            contrasts.append((f"welfare {cap} vs none @ {rlabel} (Δ={delta:+.2f})",
+                              c["comp_raw"], none["comp_raw"]))
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    print("\n--- 순열검정 + Holm (welfare cap−none; +Δ=구함, −Δ=해침) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<52} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "welfare_rescue",
+            "config": {"model": model, "temp": temp, "agents": n, "workload": workload,
+                       "rounds": rounds, "seeds": seeds},
+            "regimes": [{"label": r, "scarcity": s, "pool": max(1, int(s * n * workload))}
+                        for r, s in regimes],
+            "cells": {k: {kk: vv for kk, vv in v.items()} for k, v in cells.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("experiment", choices=["v1", "v4", "v5", "v6", "phase_a"])
+    ap.add_argument("experiment", choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue"])
     ap.add_argument("--model", default="z-ai/glm-4.6")
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -292,6 +341,8 @@ async def main():
         res = await run_v6(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "phase_a":
         res = await run_phase_a(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "welfare_rescue":
+        res = await run_welfare_rescue(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 

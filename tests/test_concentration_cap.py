@@ -74,9 +74,10 @@ def test_quad_more_lenient_than_linear_on_mild_overage():
     quad = ConcentrationCapPolicy(curve="quad", k=0.5, floor=10)
     cap_lin = _cap_boundary(lin, st, "A")
     cap_quad = _cap_boundary(quad, st, "A")
-    # o=0.5 -> linear w=0.5 (cap~75), quad w=0.8 (cap~120); ranges absorb 1/3 float dust
-    assert 74 <= cap_lin <= 75
-    assert 119 <= cap_quad <= 120
+    # o = 1/3 float dust makes o=0.5000000000000001 deterministically, so
+    # linear w=0.4999.. -> int(74.99..)=74 (never 75); quad w=0.8 -> 120. Fixed, not flaky.
+    assert cap_lin == 74
+    assert cap_quad == 120
     assert cap_quad > cap_lin  # graduated: quad does not over-punish mild overage
 
 
@@ -116,3 +117,21 @@ def test_unknown_curve_rejected():
     import pytest
     with pytest.raises(ValueError):
         ConcentrationCapPolicy(curve="cubic")
+
+
+def test_flat_is_byte_for_byte_fraction_cap():
+    """The cap_flat arm IS the V6 dumb_cap control — it must match FractionCapPolicy
+    exactly, or the 'flat == dumb cap' claim is false (plan review, R2)."""
+    from antigreedy.governance.nullcap import FractionCapPolicy
+    flat = ConcentrationCapPolicy(curve="flat", k=0.22, floor=30)
+    dumb = FractionCapPolicy(k=0.22, floor=30)
+    for shares in ({}, {"A": 300, "B": 30, "C": 30}, {"A": 100, "B": 100, "C": 100}):
+        for remaining in (0, 30, 137, 300, 600):
+            for est in (0, 25, 66, 150, 300):
+                st = _state(shares, remaining)
+                rf = flat.evaluate(_msg("A", est), st, [])
+                rd = dumb.evaluate(_msg("A", est), st, [])
+                assert rf.verdict == rd.verdict
+                assert (rf.modified_payload or {}).get("content") == \
+                       (rd.modified_payload or {}).get("content")
+                assert rf.flags.get("airtime_greedy") == rd.flags.get("airtime_greedy")
