@@ -75,7 +75,53 @@ async def _seeded(name, intercept_builder, shapers, agents, pool, workload, roun
     return {"name": name, "n": n, "failed": seeds - n,
             "full_rate": full / n, "full_lo": p_lo, "full_hi": p_hi,
             "comp_mean": c_mean, "comp_lo": c_lo, "comp_hi": c_hi,
-            "top_mean": t_mean, "top_lo": t_lo, "top_hi": t_hi}
+            "top_mean": t_mean, "top_lo": t_lo, "top_hi": t_hi,
+            "comp_raw": [e["completion_rate"] for e in eps],   # F3: raw per-replication arrays
+            "top_raw": [e["top_share"] for e in eps]}
+
+
+# --- proper statistics on raw per-replication arrays (review F3) ---
+import random as _random
+
+
+def _mean(xs):
+    return sum(xs) / len(xs) if xs else 0.0
+
+
+def bootstrap_ci(xs, iters=10000, seed=0):
+    """percentile bootstrap 95% CI of the mean (반복=재현 위해 고정 시드)."""
+    if len(xs) < 2:
+        return (_mean(xs), _mean(xs))
+    rng = _random.Random(seed)
+    n = len(xs)
+    means = sorted(_mean([xs[rng.randrange(n)] for _ in range(n)]) for _ in range(iters))
+    return (means[int(0.025 * iters)], means[int(0.975 * iters)])
+
+
+def permutation_p(a, b, iters=10000, seed=0):
+    """두-표본 순열검정(평균차) 양측 p — 정규근사 가정 없이 (review F3)."""
+    obs = abs(_mean(a) - _mean(b))
+    pool = list(a) + list(b)
+    na = len(a)
+    rng = _random.Random(seed)
+    hits = 1
+    for _ in range(iters):
+        rng.shuffle(pool)
+        if abs(_mean(pool[:na]) - _mean(pool[na:])) >= obs - 1e-12:
+            hits += 1
+    return hits / (iters + 1)
+
+
+def holm(pairs):
+    """Holm–Bonferroni: pairs=[(label,p),...] → [(label,p,p_adj,sig)]."""
+    s = sorted(pairs, key=lambda kv: kv[1])
+    m = len(s)
+    out, prev = [], 0.0
+    for i, (lab, p) in enumerate(s):
+        adj = max(prev, min(1.0, (m - i) * p))
+        prev = adj
+        out.append((lab, p, adj, adj < 0.05))
+    return out
 
 
 def _row(a):
@@ -117,9 +163,57 @@ async def run_v1(backend, seeds, agents, pool, workload, rounds):
     return {"experiment": "v1", "rounds": rounds, "arms": out}
 
 
+async def run_v6(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """결정적 실험 (review F1/F2/F3): 모든 arm을 *한 실험·공통 baseline*에서 N seeds로 측정,
+    원자료 저장, bootstrap CI + 순열검정 + Holm 보정. 입력×출력 동일 조건 비교 + 앵커링 대조군."""
+    print(f"\n=== V6: 공통-baseline 7-arm + 대조군 + bootstrap/permutation/Holm "
+          f"(N={seeds}, {agents}ag, rounds={rounds}) ===")
+    arms_spec = [
+        ("none", _intercept_none, []),
+        ("dumb_cap", _intercept_dumbcap, []),
+        ("social", _intercept_social, []),
+        ("reputation_feedback", _intercept_none, ["reputation_feedback"]),
+        ("superordinate", _intercept_none, ["superordinate_identity"]),
+        ("fairshare_anchor", _intercept_none, ["fairshare_anchor"]),       # F2 대조군: 앵커만
+        ("neutral_filler", _intercept_none, ["neutral_filler"]),          # F2 대조군: 길이만
+    ]
+    arms = {}
+    for name, ib, sh in arms_spec:
+        a = await _seeded(name, ib, sh, agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        print(f"{name:<20} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    # key contrasts (permutation, then Holm across the family)
+    C = arms
+    contrasts = [
+        ("welfare rep vs none", C["reputation_feedback"]["comp_raw"], C["none"]["comp_raw"]),
+        ("top rep vs none", C["reputation_feedback"]["top_raw"], C["none"]["top_raw"]),
+        ("welfare rep vs fairshare_anchor (social comp)", C["reputation_feedback"]["comp_raw"], C["fairshare_anchor"]["comp_raw"]),
+        ("welfare fairshare_anchor vs neutral_filler (anchor comp)", C["fairshare_anchor"]["comp_raw"], C["neutral_filler"]["comp_raw"]),
+        ("welfare neutral_filler vs none (length comp)", C["neutral_filler"]["comp_raw"], C["none"]["comp_raw"]),
+        ("top superordinate vs none", C["superordinate"]["top_raw"], C["none"]["top_raw"]),
+        ("welfare superordinate vs none", C["superordinate"]["comp_raw"], C["none"]["comp_raw"]),
+        ("top social vs dumb_cap (F4)", C["social"]["top_raw"], C["dumb_cap"]["top_raw"]),
+        ("welfare social vs none", C["social"]["comp_raw"], C["none"]["comp_raw"]),
+    ]
+    raw_p = [(lab, permutation_p(a, b)) for lab, a, b in contrasts]
+    adjusted = holm(raw_p)
+    print("\n--- 순열검정 + Holm 보정 (유의 = p_adj<0.05) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<48} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "v6", "config": {"model": model, "temp": temp, "agents": agents,
+            "pool": pool, "workload": workload, "rounds": rounds, "seeds": seeds},
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("experiment", choices=["v1", "v4", "v5"])
+    ap.add_argument("experiment", choices=["v1", "v4", "v5", "v6"])
     ap.add_argument("--model", default="z-ai/glm-4.6")
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -142,6 +236,8 @@ async def main():
         res = await run_v4(backend, args.seeds, agents, pool, workload, args.rounds)
     elif args.experiment == "v5":
         res = await run_v5(backend, args.seeds, agents, pool, workload)
+    elif args.experiment == "v6":
+        res = await run_v6(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 
