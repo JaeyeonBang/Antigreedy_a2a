@@ -194,16 +194,58 @@ Sybil (단위 검증, test_qv.py):
   결정론적 회계로 보였다(LLM arm보다 명확·저비용).</li>
 </ul>
 
-<h2 id="exp">3. 실험 설계</h2>
+<h2 id="prior">3. 선행 연구와의 관계 (문헌 비교)</h2>
+<p>우리 <code>qv.py</code>를 QV 이론·실증 선행과 <b>수식 단위로 대응</b>시킨다. 전체 인용·웹검증은
+<code>docs/related_work.md</code> §A(전부 [V] 표시).</p>
+<table><thead><tr><th>선행 연구</th><th>핵심 세팅 / 수식</th><th>우리 <code>qv.py</code> 대응</th><th>차이 (delta)</th></tr></thead><tbody>
+<tr><td>Lalley &amp; Weyl, <i>Quadratic Voting</i> (2015/18) + <i>Nash Eq.</i> (1409.0264)</td>
+<td>강도 진실 노출, n↑이면 점근 효율 — 단 비효율 ∝ <b>1/n</b></td>
+<td><code>unit_cost(d)=d²</code> (2차 비용)</td>
+<td>n=4 <b>소표본</b> → 1/n 비효율 영역 → 효과 약화·Holm 간발의 *이론적* 근거</td></tr>
+<tr><td>Weyl, <i>Robustness of QV</i> (Public Choice 2017)</td>
+<td>"2차일 때만(iff) 강건 최적" — <b>예산·지불·price-taking</b> 전제</td>
+<td><code>qv_flat</code> = 예산 있는 2차 → 정리 *적용 대상*</td>
+<td>Phase A의 <code>1/(1+o²)</code>는 예산·지불 없어 정리 <b>비적용</b>(NO-GO 근거)</td></tr>
+<tr style="background:#fbf6e8"><td><b>Georgescu·Fox·Gautier·Wooldridge</b> (arXiv 2409.06614) — 고정예산 다이슈 QV</td>
+<td>비용 <code>Σ_j m_ij² ≤ B</code> (다대상·고정예산), 응용 = 기업/블록체인 거버넌스·설문·국민투표</td>
+<td>예산 B + 2차 차감 골격 <b>동일</b>: <code>spent=Σ d²/rep ≤ B</code></td>
+<td>① <b>단일-대상</b>(공유지 하나라 m_ij→d) ② <code>÷rep</code> 추가 ③ 응용=<b>발언권/자원</b>(본문에 attention 배분 없음 — 웹검증 → 명시적 선행 부재)</td></tr>
+<tr style="background:#fbf6e8"><td><b>FedQV</b> (arXiv 2401.01168) — 평판-가중 예산</td>
+<td>연합학습 집계에서 <b>평판-가중 예산이 QV 이점을 *증폭*</b></td>
+<td><code>qv_rep</code>: <code>cost=d²/rep</code>, <code>cap=√((B−spent)·rep)</code></td>
+<td>"QV+평판"의 가장 가까운 <b>기능적 선례</b>. 단 도메인 다름(FL집계 vs LLM자원) — 우리 결과는 <b>증폭 없음</b>(예산이 먼저 binding)</td></tr>
+<tr><td>Buterin·Hitzig·Weyl QF (1809.06421) / SBT·탈중앙사회 (2022)</td>
+<td>QF의 지배 공격 = <b>Sybil</b>(신원 분할); 비양도 신원(SBT)이 방어 토대</td>
+<td><code>sybil_total_cost</code>: 분할→<code>total²/(k·rep)</code>, 신원-귀속→<code>total²/rep</code></td>
+<td>단위 회계로 취약점·방어 검증만 — <b>실 LLM 다신원 arm 미수행</b></td></tr>
+</tbody></table>
+<p><b>한 줄 위치.</b> 메커니즘(고정예산 2차 비용)도, 평판 가중(FedQV)도 선행이 있다. 그러나 이를 <b>LLM 에이전트의
+발언권/자원 거버넌스에 적용 + V6식 통제 검정으로 환원</b>한 명시적 선행은 없다 — 좁지만 분명한 신규성은 *적용·위협모델·검정 설계*에 있다.</p>
+
+<h3>고정 QV(<code>qv_flat</code>) vs 평판 QV(<code>qv_rep</code>) — 장단점</h3>
+<table><thead><tr><th></th><th>qv_flat (평판 무가중)</th><th>qv_rep (평판 가중)</th></tr></thead><tbody>
+<tr><td><b>수식</b></td><td><code>cost=d²</code>, <code>cap=√(B−spent)</code></td><td><code>cost=d²/rep</code>, <code>cap=√((B−spent)·rep)</code></td></tr>
+<tr><td><b>장점</b></td><td>모수 1개(B)로 단순 · 평판 계산/신뢰 불필요 · 평판 조작·세탁 표면 없음 · <b>우리 실험서 독점 최저(0.261)·후생 최고(0.93)</b></td><td>이론상 저평판=비용↑로 <b>상습범을 더 억제</b> · "공정하면 투표권↑" 인센티브 · FedQV서 이점 증폭 보고</td></tr>
+<tr><td><b>단점</b></td><td>모두 동일 예산 → 상습범도 *첫 위반 전엔* 동일 권한 · 평판 인센티브 없음</td><td>평판 정확도에 의존(조작·세탁 위험) · <b>예산이 먼저 binding이면 ÷rep 무효</b>(우리 결과) · 평판 오판 시 공정 에이전트 과벌 위험(§6.2 카스트 교훈)</td></tr>
+<tr><td><b>우리 결과</b></td><td>top <b>0.261</b> / welfare <b>0.93</b></td><td>top 0.276 / welfare 0.85 — qv_flat 대비 <b>이득 0(ns)</b></td></tr>
+<tr><td><b>언제 쓰나</b></td><td>단일-대상·소표본·평판 신뢰 어려운 환경 → <b>충분·우월</b></td><td>다대상·대규모·Sybil 위협 큰 환경(FedQV류) → <b>재검정 가치</b></td></tr>
+</tbody></table>
+<div class="callout warn"><b>핵심.</b> 이 세팅에선 <b>평판을 *뺀* 순수 QV가 평판 결합본과 같거나 약간 우월</b>했다 — FedQV의 "평판이 이점을 증폭"이
+LLM·소표본·단일대상 조건에선 재현되지 않음. 독점을 줄인 주체는 평판이 아니라 <b>고정 예산이라는 구조 제약</b>이다(이 프로그램의 "단순 기반 우선" 교훈과 일치).</div>
+
+<h2 id="exp">4. 실험 설계</h2>
 <table><thead><tr><th>arm</th><th>QV</th><th>역할</th></tr></thead><tbody>
 <tr><td><code>none</code></td><td>—</td><td>무규제 기준선</td></tr>
 <tr><td><code>qv_flat</code></td><td>2차+예산, 무가중</td><td>순수 QV</td></tr>
 <tr><td><code>qv_rep</code> ★</td><td>2차+예산+평판가중</td><td>QV+평판 결합본</td></tr>
 </tbody></table>
-<p>resource_task, 4에이전트(n=3은 QV 약함 — 선택지 적음), 예산 B=20000. 핵심 대조: top qv_rep/qv_flat
+<p>resource_task, 4에이전트(n=3은 QV 약함 — Nash 1409.0264의 1/n 비효율 영역), 예산 B=20000. 핵심 대조: top qv_rep/qv_flat
 vs none(독점 줄이나) · qv_rep vs qv_flat(평판가중 이득).</p>
+<p><b>arm ↔ 선행 대응(§3).</b> <code>qv_flat</code> = 2409.06614의 고정예산 2차 골격(단일대상화), <code>qv_rep</code> = FedQV의
+평판-가중 예산을 LLM 자원에 이식, Sybil 단위검증 = QF(1809.06421)·SBT(2022)의 위협·방어. 차별점은 <b>발언권/자원 적용 +
+에이전트 고유 Sybil 위협 + V6식 통제 검정</b>이다.</p>
 
-<h2 id="status">4. 상태 · 한계 (정직)</h2>
+<h2 id="status">5. 상태 · 한계 (정직)</h2>
 <ul>
 <li><span class="ok">✓ 구현·단위테스트(QV 회계·캡·평판가중·Sybil 10개)</span> 전체 275 passed. mock 스모크에서
   QV가 독점 0.60→0.30·welfare 0.25→0.75로 작동 확인.</li>
