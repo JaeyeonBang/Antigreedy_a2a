@@ -213,9 +213,12 @@ the same lesson as §5: **a simple base beats an elaborate signal.**
 **6.1 Reputation forgetting (Beta+λ): the current rule builds a *permanent caste* (N=30).** The §4 reputation
 `rep = clip(1 − overage/fair, .1, 1)` reads only *cumulative* share, so an agent that once over-used never
 recovers. Generalizing to a standard **Beta reputation** (Jøsang 2001) with **exponential forgetting λ** and a
-new **recovery_rate** metric: the linear rule's recovery is exactly **0.000** (permanent ostracism = caste);
-any Beta forgetting restores it (λ=0.7 vs linear `p_holm=.0007`), monotone in λ. The fine λ-gradient
-(λ0.7 vs λ1.0) is directional but ns at N=30 — the real cliff is the *linear↔Beta* boundary. Strict linear
+new **recovery_rate** metric: among arms that *exclude*, only the linear rule's recovery is exactly **0.000**
+(permanent ostracism = caste; `none`'s 0.000 is degenerate — no exclusions occur). **λ=0.7 forgetting
+significantly restores recovery** (vs linear `p_holm=.0007`); λ=0.9/1.0 are descriptively positive (0.32/0.27)
+but were *not* significance-tested vs linear. recovery is monotone in λ. The fine λ-gradient (λ0.7 vs λ1.0)
+is directional but far from significant at N=30 (`p_holm=.50`, underpowered ≠ zero) — the real cliff is the
+*linear↔Beta* boundary. Strict linear
 ostracism minimizes monopoly (0.350) but kills recovery; forgetting revives recovery at a small monopoly cost.
 
 **6.2 Elder LLM-judge ledger: the judge is *frozen noise*, not signal (N=20).** If a reputation is set by an
@@ -232,11 +235,14 @@ immutable judgments are dangerous.**
 **6.3 Real QV (quadratic cost + fixed budget): the program's only *two-sided* win (N=20, 4 agents).** The
 earlier `1/(1+o²)` curve was not real QV (no budget; design-review NO-GO). Real QV (Weyl 2017) charges a
 **quadratic cost against a fixed budget** (`cost = d²/rep`, cumulative spend capped at B). It is the *only*
-mechanism here that **cuts monopoly (0.475→0.26) while raising welfare (0.78→0.93)** — every other lever traded
-fairness against welfare. CIs are tight (raw `p=.009/.013`) but Holm-corrected they *narrowly miss* (`.054/.065`);
-we report the planned N=20 without post-hoc inflation (goalpost rule). Reputation-weighting (`qv_rep`) adds **no
-measurable benefit** over flat QV (the budget binds first). Sybil's vulnerability (splitting cuts quadratic cost
-to 1/k) and its defense (identity-bound pooled budget → zero gain) are shown by deterministic unit accounting.
+direction here that **improves both monopoly (0.475→0.26) and welfare (0.78→0.93) in point estimate** — every
+other lever traded fairness against welfare. **But neither half fully passes the controlled test**: the monopoly
+drop has tight CIs and is raw-significant (`p=.009/.013`) yet Holm-corrected *narrowly misses* (`.054/.065`), and
+the welfare gain (qv_flat vs none) is itself ns (`p=.10`). We report the planned N=20 without post-hoc inflation
+(goalpost rule) — read it as a *promising but unconfirmed* direction, not an established win. Reputation-weighting
+(`qv_rep`) adds **no measurable benefit** over flat QV (the budget binds first). Sybil's vulnerability (splitting
+cuts quadratic cost to 1/k) and its defense (identity-bound pooled budget → zero gain) are shown by deterministic
+unit accounting (no live-LLM multi-identity arm was run).
 
 **6.4 Synthesis — a simple base beats an elaborate signal.** All three extensions point the same way as §5:
 adding a sophisticated signal (fine λ, an LLM judge, reputation-weighting) does not beat the simple base
