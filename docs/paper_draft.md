@@ -202,7 +202,52 @@ the designed social mechanism.
 
 ---
 
-## 6. Discussion
+## 6. Governance-Mechanism Extensions (BCDE): reputation forgetting, an elder ledger, and real QV
+
+Beyond the 7-arm input-framing test, we built three *more elaborate output-side* mechanisms from the
+future-work list and ran them through the same controlled design (shared baseline, bootstrap/permutation/Holm,
+0-recompute-verified) on **glm-4.7-flash**. Full results, formulas, and limits live in three reports
+([forgetting](caste_report.html) · [elder](elder_report.html) · [QV](qv_report.html)). All three converge on
+the same lesson as §5: **a simple base beats an elaborate signal.**
+
+**6.1 Reputation forgetting (Beta+λ): the current rule builds a *permanent caste* (N=30).** The §4 reputation
+`rep = clip(1 − overage/fair, .1, 1)` reads only *cumulative* share, so an agent that once over-used never
+recovers. Generalizing to a standard **Beta reputation** (Jøsang 2001) with **exponential forgetting λ** and a
+new **recovery_rate** metric: the linear rule's recovery is exactly **0.000** (permanent ostracism = caste);
+any Beta forgetting restores it (λ=0.7 vs linear `p_holm=.0007`), monotone in λ. The fine λ-gradient
+(λ0.7 vs λ1.0) is directional but ns at N=30 — the real cliff is the *linear↔Beta* boundary. Strict linear
+ostracism minimizes monopoly (0.350) but kills recovery; forgetting revives recovery at a small monopoly cost.
+
+**6.2 Elder LLM-judge ledger: the judge is *frozen noise*, not signal (N=20).** If a reputation is set by an
+**LLM judge** reading each agent's *justification* and blended with behavior (`rep = α·rule + (1−α)·llm`, judged
+once per episode, written to an immutable ledger), does it add real signal? No — it is *actively harmful*:
+`ledger_elder` differs significantly from rule and from a numeric anchor (all `p_holm≤.0028`) but in the **wrong
+direction** (top 0.757, welfare 0.33), while pure behavior reputation (α=1) is best (welfare 0.95). A one-shot
+real-LLM diagnostic shows why: the judge scores at round 0, where under a competitive persona *every* opening
+justification sounds self-serving, so it hands out uniformly harsh scores (0.2–0.3); the **immutable ledger
+freezes that early error**, dragging even later-fair agents (rule 0.60) below the ostracism line. This is the
+sibling of §6.1's caste: there cumulative behavior, here a frozen LLM misjudgment. **Deeds beat words; early,
+immutable judgments are dangerous.**
+
+**6.3 Real QV (quadratic cost + fixed budget): the program's only *two-sided* win (N=20, 4 agents).** The
+earlier `1/(1+o²)` curve was not real QV (no budget; design-review NO-GO). Real QV (Weyl 2017) charges a
+**quadratic cost against a fixed budget** (`cost = d²/rep`, cumulative spend capped at B). It is the *only*
+mechanism here that **cuts monopoly (0.475→0.26) while raising welfare (0.78→0.93)** — every other lever traded
+fairness against welfare. CIs are tight (raw `p=.009/.013`) but Holm-corrected they *narrowly miss* (`.054/.065`);
+we report the planned N=20 without post-hoc inflation (goalpost rule). Reputation-weighting (`qv_rep`) adds **no
+measurable benefit** over flat QV (the budget binds first). Sybil's vulnerability (splitting cuts quadratic cost
+to 1/k) and its defense (identity-bound pooled budget → zero gain) are shown by deterministic unit accounting.
+
+**6.4 Synthesis — a simple base beats an elaborate signal.** All three extensions point the same way as §5:
+adding a sophisticated signal (fine λ, an LLM judge, reputation-weighting) does not beat the simple base
+(behavior reputation, a fixed budget); the one win comes from a structural constraint (a budget), not social
+sophistication. §6 also adds a new risk: **immutability** (cumulative or ledger) freezes errors into an
+unrecoverable caste. Prescription: before bolting on a clever social/judgmental device, controlled-test whether
+it *significantly* beats the simple base.
+
+---
+
+## 7. Discussion
 
 **Most effects do not survive the controlled test; that is the central result.** On the input side,
 reputation-feedback reduces to an anchoring artifact and superordinate's welfare benefit is null; only its
@@ -226,7 +271,7 @@ in-context instruction-following.
 
 ---
 
-## 7. Limitations
+## 8. Limitations
 
 - **Model, scenario, operating point.** The main experiment (§5.1–5.5) is GLM-4.6; the §5.6 identity
   experiment is glm-4.7-flash (reasoning off); resource-task, pool=360, r=8, N=30. Both are single-model
@@ -247,7 +292,7 @@ in-context instruction-following.
 
 ---
 
-## 8. Conclusion & Future Work
+## 9. Conclusion & Future Work
 
 A controlled, anchor-controlled, multiplicity-corrected experiment on LLM-agent greed governance finds
 that **most candidate effects are measurement artifacts**: of nine contrasts, only superordinate-identity

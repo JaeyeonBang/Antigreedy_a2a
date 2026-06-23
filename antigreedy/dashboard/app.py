@@ -178,6 +178,26 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         return ("<h1>리포트가 아직 생성되지 않았습니다</h1>"
                 "<p><code>.venv/bin/python scripts/build_paper_html.py</code> 를 먼저 실행하세요.</p>")
 
+    # BCDE 메커니즘 확장 리포트 — 논문 §6의 상대링크(caste_report.html 등)가 대시보드에서도
+    # 해석되도록 docs/ 의 화이트리스트된 리포트 HTML을 *명시적 경로*로 서빙한다(catch-all 금지:
+    # /config·/policies 등을 가려버리므로). 화이트리스트로 경로 traversal도 차단.
+    _docs_dir = Path(__file__).resolve().parent.parent.parent / "docs"
+    _ext_reports = ["caste_report.html", "elder_report.html", "qv_report.html",
+                    "phase_d_report.html", "welfare_rescue_report.html"]
+
+    def _make_report_route(fname: str):
+        async def _serve() -> HTMLResponse:
+            fp = _docs_dir / fname
+            if fp.exists():
+                return HTMLResponse(fp.read_text(encoding="utf-8"))
+            return HTMLResponse(f"<h1>{fname} 미생성</h1>"
+                                "<p>해당 실험 빌더를 먼저 실행하세요.</p>", status_code=404)
+        return _serve
+
+    for _fname in _ext_reports:
+        app.add_api_route(f"/{_fname}", _make_report_route(_fname),
+                          methods=["GET"], response_class=HTMLResponse)
+
     @app.get("/config")
     async def config() -> dict:
         return {"real_available": real_backend_factory is not None}
