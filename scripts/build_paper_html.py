@@ -145,11 +145,11 @@ def build_charts(data):
     arms = [data["arms"][k] for k in ARM_ORDER]
     welfare = _bar_chart(
         arms, "comp_mean", "comp_boot",
-        "그림 1. arm별 welfare(완료율)", "막대=평균, whisker=bootstrap 95% CI · N=30",
+        "그림 1. 조건별 welfare(완료율)", "막대=평균, whisker=bootstrap 95% CI · N=30",
         lower_is_better=False, highlight={"neutral_filler", "social"})
     top = _bar_chart(
         arms, "top_mean", "top_boot",
-        "그림 2. arm별 top-share(독점)", "막대=평균, whisker=bootstrap 95% CI · N=30",
+        "그림 2. 조건별 top-share(독점)", "막대=평균, whisker=bootstrap 95% CI · N=30",
         lower_is_better=True, highlight={"superordinate"})
     contrasts = _contrast_chart(data["contrasts"])
     legend = (
