@@ -169,7 +169,8 @@ def placebo_block():
 {chart}
 {table}
 <p><b>해석.</b> emergent는 무내용 길이대조(filler)보다 유의하게 독점↑(p_holm .031)로 <b>역효과 방향은 재현</b>됐으나, <b>핵심 대조 emergent vs placebo가 무유의</b>다.
-검정력 한계상 "동일"의 증명이 아니라 <b>"행동-도출이 해악을 키운다는 증거의 부재"</b>로 읽어야 한다(점추정은 여전히 emergent가 약간 나쁨). 상세&#183;한계 = <code>docs/verify_phase_d_placebo.md</code>.</p>
+검정력 한계상 "동일"의 증명이 아니라 <b>"행동-도출이 해악을 키운다는 증거의 부재"</b>로 읽어야 한다(점추정은 여전히 emergent가 약간 나쁨).</p>
+<div class="callout q"><b>강건성(n=6 재현).</b> n=3 위약의 1/3 우연일치 한계를 없애려 에이전트 6으로 재실행 → 핵심 결론이 <b>더 강하게 재현</b>: emergent vs placebo가 더 명확히 무유의(p 0.35&#8594;0.66), 그리고 <b>새로 placebo vs neutral_filler가 유의</b>(p_holm .0018) &#8212; <i>가짜</i> 군집 배너조차 무내용보다 독점↑ = "분열 프레임 자체가 해롭다"의 직접 증거. 상세 = <code>docs/verify_phase_d_placebo.md</code> §강건성.</div>
 """
 
 

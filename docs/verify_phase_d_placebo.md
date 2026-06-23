@@ -45,8 +45,30 @@
 - **모델·곡선 stand-in:** GLM-4.7-flash(reasoning off), 군집러는 순수 파이썬 단일-연결(Leiden 자리표시자). n=3에선 3노드 그래프라 Leiden↔단일연결이 사실상 동일 — Leiden 교체는 에이전트 수를 키운 뒤에야 의미가 있다.
 - **neutral_filler degenerate 가능성** 그대로(verify_phase_d.md §한계 참조).
 
+## 강건성 — n=6 재현 (1/3 우연일치 한계 해소)
+
+n=3 위약의 약점(2-1 분할서 무작위 짝이 우연히 실제 짝과 같을 확률 1/3)을 없애려 **에이전트 6**으로 재실행(같은 glm-4.7-flash·N=30, pool=720, workload=120; [`verify_phase_d_placebo_n6.json`](verify_phase_d_placebo_n6.json), 재계산 0 불일치). 공정 몫이 1/6≈0.167이라 독점 수치는 전반적으로 낮다.
+
+| arm | welfare | top-share(독점) |
+|---|---|---|
+| none | 0.92 | 0.235 |
+| **emergent** | 0.81 | **0.305** |
+| **placebo** | 0.83 | **0.280** |
+| neutral_filler | 0.98 | 0.174 |
+
+| 대조 | p | p_holm | 판정 |
+|---|---|---|---|
+| top: **placebo vs neutral_filler** | .0003 | **.0018** | ✅ **NEW** — *가짜* 군집 배너도 무내용보다 유의하게 독점↑ |
+| top: **emergent vs neutral_filler** | .0036 | **.0180** | ✅ 역효과 재현(n=3과 동일) |
+| top: emergent vs none | .199 | .797 | ns |
+| top: placebo vs none | .329 | .988 | ns |
+| **top: emergent vs placebo** | .663 | **1.00** | **ns → 더 명확히 구별 불가**(p 0.35→0.66) |
+| welfare: emergent vs placebo | .818 | 1.00 | ns |
+
+**해석:** 서열(emergent>placebo>none>filler)·핵심 결론이 그대로 재현되고 *더 강해진다*. (1) `emergent vs placebo`가 더 명확히 무유의(p 0.66) — 위약 멤버십이 진짜로 탈상관된 규모에서도 실제 군집과 통계적으로 같다. (2) **새로** `placebo vs neutral_filler`가 유의 → *가짜* 군집 배너조차 무내용 배너보다 독점을 유의하게 올린다 = "us-vs-them 분열 프레임 자체가 해롭다"의 직접 증거. 에이전트 6은 실제 하위공동체가 형성될 수 있는 규모(Leiden이 비자명해지는 지점)인데도 **행동-도출 군집이 무작위 분할 대비 이점 0**.
+
 ## 결론
 
-**위약 대조는 phase_d 역효과를 *강화*하되 그 *원인을 재배치*한다.** 해악은 "행동에서 창발한 정체성"이라는 설계 자랑거리가 아니라 — **어떤 군집이든 us-vs-them으로 *분열시켜 알리는 행위*** 자체에서 온다(거짓 군집도 동등하게 해롭다). 따라서 anti-greedy 레버로서 *창발* 정체성은 부과 정체성 대비 이점이 없을 뿐 아니라, "정확한 행동 신호"라는 정당화조차 데이터가 받쳐주지 않는다. 다음(선택): 에이전트 6+로 키워 위약을 정제하고 Leiden을 비자명화 + glm-4.6 동일모델 재현으로 역효과의 모델 일반성 확인.
+**위약 대조는 phase_d 역효과를 *강화*하되 그 *원인을 재배치*한다.** 해악은 "행동에서 창발한 정체성"이라는 설계 자랑거리가 아니라 — **어떤 군집이든 us-vs-them으로 *분열시켜 알리는 행위*** 자체에서 온다(거짓 군집도 동등하게 해롭다). 따라서 anti-greedy 레버로서 *창발* 정체성은 부과 정체성 대비 이점이 없을 뿐 아니라, "정확한 행동 신호"라는 정당화조차 데이터가 받쳐주지 않는다. **이 결론은 에이전트 3·6 두 규모에서 재현됐다**(위 §강건성). 다음(선택): glm-4.6 동일모델 재현으로 역효과의 모델 일반성 확인 + (별개 작업)실제 Leiden 군집러로 stand-in 교체.
 
 *아티팩트: [`verify_phase_d_placebo.json`](verify_phase_d_placebo.json)(원자료·통계), 하니스 [`scripts/verify_claims.py`](../scripts/verify_claims.py) `run_phase_d_placebo`, 셰이퍼 [`prompt_shapers.py`](../antigreedy/scenario/prompt_shapers.py) `placebo_cluster` · 군집 [`reputation_identity.py`](../antigreedy/scenario/reputation_identity.py) `placebo_clusters`.*
