@@ -28,6 +28,8 @@ from antigreedy.governance.concentration_cap import ConcentrationCapPolicy
 from antigreedy.governance.beta_ostracism import BetaOstracismPolicy
 from antigreedy.governance.nullcap import FractionCapPolicy, chain_intercept
 from antigreedy.governance.reputation_calc import linear_reputation, beta_reputation
+from antigreedy.governance.elder import ElderInterceptPoint
+from antigreedy.governance.elder_judge import judge as elder_judge
 from antigreedy.governance.types import SharedState
 from antigreedy.caste_metrics import recovery_rate
 from antigreedy.metrics import mean_ci, wilson_interval
@@ -64,6 +66,19 @@ def _intercept_beta(lam, lam_down=None):
     lam=1.0이면 영구 누적(카스트화 위험), lam<1이면 자기교정 가능."""
     return lambda state: chain_intercept(
         [BetaOstracismPolicy(lam=lam, lam_down=lam_down)], state)
+
+
+def _intercept_elder(alpha, backend=None, lam=1.0, lam_down=None):
+    """Phase 2 (design D-Elder): Elder 원장 평판으로 구동되는 배제+캡.
+    backend=None → numeric 앵커(ledger_numbers); backend 지정 → 실 LLM judge(ledger_elder).
+    alpha=1.0 → 순수 rule(ledger_rule, judge 미호출)."""
+    if backend is not None and alpha < 1.0:
+        async def judge_fn(agent, just, share, fair):
+            return await elder_judge(backend, agent, just, share, fair)
+    else:
+        judge_fn = None
+    return lambda state: ElderInterceptPoint(state, alpha=alpha, judge_fn=judge_fn,
+                                             lam=lam, lam_down=lam_down)
 
 
 async def _one(name, intercept_builder, shapers, agents, pool, workload, rounds, backend,
@@ -476,11 +491,53 @@ async def run_caste_lambda(backend, seeds, agents, pool, workload, rounds, model
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_elder(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """Phase 2 (design D-Elder): rule+LLM-judge 평판이 rule-only보다 *진짜 신호*를 더하나, 아니면
+    또 앵커링인가(V6 교훈)? 에이전트의 한 줄 근거(REASON)를 Elder LLM이 에피소드당 1회 채점하고
+    rule(Beta 행동평판)과 α=0.5로 혼합해 배제+캡한다. 앵커 대조 ledger_numbers는 같은 형태의 점수를
+    LLM 없이 점유 숫자만으로 만든다 → ledger_elder ≈ ledger_numbers면 judge는 앵커일 뿐."""
+    print(f"\n=== Phase 2: Elder 원장 judge (공통 baseline, N={seeds}, {agents}ag, rounds={rounds}) ===")
+    arms_spec = [
+        ("none", _intercept_none),
+        ("ledger_numbers", _intercept_elder(0.5, backend=None)),   # 앵커: 숫자만 (LLM 없음)
+        ("ledger_rule", _intercept_elder(1.0, backend=None)),      # α=1: 순수 rule(Beta)
+        ("ledger_elder", _intercept_elder(0.5, backend=backend)),  # ★ α=.5: 실 LLM judge 혼합
+    ]
+    arms = {}
+    for name, ib in arms_spec:
+        a = await _seeded(name, ib, [], agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        print(f"{name:<16} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    contrasts = [
+        ("top ledger_elder vs ledger_rule (★ judge가 신호 더하나)", C["ledger_elder"]["top_raw"], C["ledger_rule"]["top_raw"]),
+        ("top ledger_elder vs ledger_numbers (앵커 이상인가)", C["ledger_elder"]["top_raw"], C["ledger_numbers"]["top_raw"]),
+        ("welfare ledger_elder vs ledger_rule", C["ledger_elder"]["comp_raw"], C["ledger_rule"]["comp_raw"]),
+        ("welfare ledger_elder vs ledger_numbers", C["ledger_elder"]["comp_raw"], C["ledger_numbers"]["comp_raw"]),
+        ("top ledger_rule vs none (rule 배제가 독점 줄이나)", C["ledger_rule"]["top_raw"], C["none"]["top_raw"]),
+        ("top ledger_elder vs none", C["ledger_elder"]["top_raw"], C["none"]["top_raw"]),
+        ("welfare ledger_rule vs none", C["ledger_rule"]["comp_raw"], C["none"]["comp_raw"]),
+    ]
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    print("\n--- 순열검정 + Holm (유의 = p_adj<0.05) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<48} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "elder", "config": {"model": model, "temp": temp, "agents": agents,
+            "pool": pool, "workload": workload, "rounds": rounds, "seeds": seeds},
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
-                             "phase_d", "phase_d_placebo", "caste_lambda"])
+                             "phase_d", "phase_d_placebo", "caste_lambda", "elder"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -515,6 +572,8 @@ async def main():
         res = await run_phase_d_placebo(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "caste_lambda":
         res = await run_caste_lambda(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "elder":
+        res = await run_elder(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 

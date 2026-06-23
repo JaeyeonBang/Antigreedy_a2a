@@ -24,6 +24,13 @@ from antigreedy.scenario.prompt_shapers import apply_shapers
 
 CHARS_PER_TOKEN = 4
 _REQ = re.compile(r"REQUEST\s*:\s*([0-9]+)", re.IGNORECASE)
+_REASON = re.compile(r"REASON\s*:\s*(.+)", re.IGNORECASE)
+
+
+def parse_reason(text: str) -> str:
+    """에이전트의 한 줄 근거(REASON 라인)를 뽑는다 — Elder LLM-judge의 심사 대상(Phase 2)."""
+    m = _REASON.search(text or "")
+    return m.group(1).strip()[:200] if m else ""
 
 
 @dataclass
@@ -150,7 +157,8 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
             action = AgentAction(agent_id=agent, action_type="message",
                                  token_estimate=requested, round=round_no,
                                  payload={"content": "u" * (requested * CHARS_PER_TOKEN),
-                                          "request": requested})
+                                          "request": requested,
+                                          "justification": parse_reason(raw)})  # Phase 2 Elder judge
             verdict = await intercept.submit(action)
             if verdict.verdict in (Verdict.DENY, Verdict.DELAY):
                 granted = 0
