@@ -277,8 +277,9 @@ def md_to_html(md):
             while i < len(lines) and lines[i].strip().startswith(">"):
                 buf.append(re.sub(r"^>\s?", "", lines[i].strip()))
                 i += 1
+            cls = ' class="easy"' if buf and buf[0].lstrip().startswith("💡") else ""
             inner = "<br>".join(_inline(b) if b else "" for b in buf)
-            out.append(f'<blockquote>{inner}</blockquote>')
+            out.append(f'<blockquote{cls}>{inner}</blockquote>')
             continue
         m = re.match(r"^(#{1,4})\s+(.*)", s)
         if m:
@@ -334,6 +335,8 @@ blockquote{margin:14px 0;padding:12px 15px;background:var(--card);
   border:1px solid #2a3340;border-left:3px solid #d29922;border-radius:8px;
   color:#cdd9e5;font-size:13.5px;line-height:1.65;}
 blockquote strong{color:#fff;}
+blockquote.easy{border-left:3px solid #3fb950;background:#0f1a13;color:#cde6d6;font-size:14.5px;}
+blockquote.easy strong{color:#7ee2a8;}
 /* 대시보드 연동 */
 .dash{background:var(--card);border:1px solid #2a3340;border-radius:12px;
   padding:16px 18px 20px;margin:18px 0;}

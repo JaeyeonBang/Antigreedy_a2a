@@ -161,6 +161,17 @@ def slides():
 </div>""")
 
     S.append(f"""<div class="s center">
+<div class="snum">시작 전에 · 딱 세 단어</div>
+<h2>이 세 단어만 알면 끝까지 이해됩니다</h2>
+<div class="terms">
+<div class="term"><div class="ts">낮을수록 좋음</div><div class="th">독점</div><p>한 에이전트가 자원을 얼마나 <b>싹쓸이</b>했나. 높으면 한 명이 다 가져간 것 → 나쁨. <i>(top-share)</i></p></div>
+<div class="term"><div class="ts">높을수록 좋음</div><div class="th">후생</div><p>결국 <b>몇 명이나 자기 일을 끝냈나</b>(완료율). 다 같이 성공할수록 높음 → 좋음. <i>(welfare)</i></p></div>
+<div class="term"><div class="ts">이 발표의 뼈대</div><div class="th">통제 실험</div><p>약 효과를 <b>가짜약과 비교</b>하듯, 거버넌스도 "아무것도 안 함·말만 그럴싸함"과 나란히 재야 진짜인지 안다.</p></div>
+</div>
+<div class="easy center"><span class="lab">💡</span> 즉 이 발표는 "<b>한 명의 독식을 줄이고(독점↓) 모두가 일을 끝내게(후생↑)</b> 하는 방법"을 찾되, 그중 <b>진짜 효과만 골라내는</b> 이야기입니다.</div>
+</div>""")
+
+    S.append(f"""<div class="s center">
 <div class="snum">핵심 질문</div>
 <h2>"어느 쪽이 나은가"보다 먼저 —<br><span class="hl">진짜 효과를 설계가 만든 착시와 구별</span>해야 한다</h2>
 <div class="cards3">
@@ -228,6 +239,7 @@ def slides():
 <li class="muted">나머지 7개 — 평판 피드백·길이·앵커 — 전부 보정에서 증발</li>
 </ul>
 </div>
+<div class="easy"><span class="lab">💡 쉽게:</span> 공들여 만든 방법 <b>9개 중 통계를 통과한 건 단 2개</b>. 나머지는 진짜 효과가 아니라 <b>실험 설계가 만든 착시</b>였다.</div>
 <div class="foot">superordinate는 앵커 대조군 미보유 → 견고하나 정체성/지시로 미분해</div>
 </div>""")
 
@@ -293,6 +305,7 @@ def slides():
 <li class="muted">공정성의 극단 ↔ 회복가능성은 같은 축의 양 끝</li>
 </ul>
 </div>
+<div class="easy"><span class="lab">💡 쉽게:</span> 지금 평판은 한 번 "욕심쟁이"로 찍히면 <b>영영 복귀 못 함</b>(카스트). 평판이 <b>과거를 조금씩 잊게</b> 만들면 복귀가 살아난다 — "용서의 여지".</div>
 </div>""")
 
     elder_top = bars([("none", 0.475, GRAY, ""), ("numbers", 0.461, GOLDL, "앵커"),
@@ -310,6 +323,7 @@ def slides():
 <li class="muted">단 라운드-0 1회 채점이라는 최악 타이밍의 결과 — "이른·불변 판단의 위험"</li>
 </ul>
 </div>
+<div class="easy"><span class="lab">💡 쉽게:</span> AI 심판은 <b>첫인상</b>만 보고 모두에게 박한 점수를 줬고, 그게 <b>영구 기록</b>으로 남아 나중에 착해진 참가자까지 쫓아냈다. <b>"말"보다 "행동"</b>을 봐야 한다.</div>
 <div class="foot">§6.1 카스트의 자매 결과 — 거기선 행동 누적, 여기선 LLM 판단 오류가 불변성에 동결 · "말보다 행동"</div>
 </div>""")
 
@@ -329,6 +343,7 @@ def slides():
 <li class="muted">비결은 사회적 정교함이 아니라 <b>고정 예산</b>이라는 구조 제약 · Sybil 취약점/방어는 단위 회계로 검증</li>
 </ul>
 </div>
+<div class="easy"><span class="lab">💡 쉽게:</span> <b>"몰아 쓰면 손해 보는 예산제"</b>를 넣으니 독식이 절반으로 줄고 모두 더 잘 끝냈다 — 둘 다 좋아진 유일한 방법(단 통계적으론 아슬아슬, 더 큰 실험 필요).</div>
 </div>""")
 
     S.append(f"""<div class="s center">
@@ -421,6 +436,14 @@ ul.big li.warn::before{background:var(--red);}
 .tag{display:inline-block;font-size:13px;font-weight:700;color:#fff;border-radius:5px;padding:2px 9px;margin-right:8px;}
 .tag.out{background:var(--red);}.tag.in{background:var(--blue);}
 .analogy{margin-top:18px;background:#f3eede;border-radius:10px;padding:14px 18px;font-size:15px;line-height:1.6;color:#5a4d2a;}
+.easy{margin-top:20px;background:#eef7f0;border:1px solid #cfe6d6;border-left:4px solid #2f9e57;border-radius:10px;padding:13px 18px;font-size:16px;line-height:1.6;color:#234a32;}
+.easy b{color:#1c7a42;}.easy .lab{font-weight:800;color:#1c7a42;margin-right:6px;}
+.easy.center{margin:20px auto 0;max-width:900px;text-align:left;}
+.terms{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:26px;width:100%;max-width:980px;}
+.term{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 22px;text-align:left;}
+.term .ts{font-size:12.5px;color:var(--gold);font-weight:800;letter-spacing:.02em;margin-bottom:8px;}
+.term .th{font-family:'Crimson Pro',serif;font-size:26px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+.term p{font-size:15px;line-height:1.62;color:#2c2a24;}
 .chart{width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;}
 .ctitle,.foot{font-size:13px;color:var(--mut);}
 .ctitle{margin-bottom:8px;font-weight:600;}

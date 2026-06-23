@@ -33,12 +33,21 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;backgro
 th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
 th{background:#f4f7fb;font-weight:700;}tr:last-child td{border-bottom:0;}
 .ok{color:#1f9d55;font-weight:700;}
+.easy{background:#eef7f0;border:1px solid #cfe6d6;border-left:4px solid #2f9e57;border-radius:11px;
+  padding:14px 18px;margin:16px 0;font-size:15px;line-height:1.68;color:#234a32;}
+.easy b{color:#1c7a42;}.easy .lab{font-weight:800;color:#1c7a42;}
 footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:#9aa6b6;font-size:12.5px;}
 </style></head><body><div class="wrap">
 <h1>Phase 2 — LLM-판관 평판은 신호인가, 또 앵커인가</h1>
 <p class="lead">에이전트의 <b>근거 텍스트</b>를 Elder LLM이 채점해 행동 평판과 섞는다. 숫자 앵커 대조로
 "judge가 진짜 신호를 더하는지"를 V6 방법론으로 가른다.</p>
 <div class="status">✅ <b>실험 완료 + 단위테스트(265 통과).</b> ★결과 = 실측(<code>verify_elder.json</code>, 0 불일치).</div>
+<div class="easy"><span class="lab">💡 배경지식 없이 한 번에.</span>
+"누가 공정한지 <b>AI 심판(judge)</b>에게 직접 평가시키면 더 낫지 않을까?"를 시험한다. 결과는 정반대였다 —
+심판은 <b>첫인상</b>(첫 발언)만 보고 채점하는데, 경쟁 상황이라 다들 욕심꾸러기처럼 들려서 <b>모두에게 박한 점수</b>를
+줬다. 게다가 그 점수가 <b>지울 수 없는 장부</b>에 영구 기록되는 바람에, 나중에 공정하게 행동한 참가자까지 쫓겨났다.
+교훈: <b>"말"보다 "행동"을 봐야 하고, 이른 판단을 영구 기록으로 굳히면 위험하다.</b> (그냥 행동만 보는 단순한
+방식 <b>rule</b>이 가장 좋았다.)</div>
 
 <h2 id="results">★ 결과 (z-ai/glm-4.7-flash, N=20) — judge는 신호인가 앵커인가</h2>
 <div class="callout warn"><b>한 줄 결론(데이터 파생).</b> LLM-judge는 rule·숫자앵커와 <b>유의하게 달랐지만 — 더 나쁜 쪽으로</b>. 불변 원장이 judge의 이른 오판을 동결해 공정한 에이전트까지 배제했다(독점↑·welfare↓). 순수 행동 평판(rule)이 최선.

@@ -160,8 +160,17 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;backgro
 th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
 th{background:#f4f7fb;font-weight:700;}tr:last-child td{border-bottom:0;}
 .ok{color:#1f9d55;font-weight:700;}
+.easy{background:#eef7f0;border:1px solid #cfe6d6;border-left:4px solid #2f9e57;border-radius:11px;
+  padding:14px 18px;margin:16px 0;font-size:15px;line-height:1.68;color:#234a32;}
+.easy b{color:#1c7a42;}.easy .lab{font-weight:800;color:#1c7a42;}
 footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:#9aa6b6;font-size:12.5px;}
 """
+
+EASY = """<div class="easy"><span class="lab">💡 배경지식 없이 한 번에.</span>
+<b>평판</b>은 "저 에이전트가 그동안 얼마나 욕심부렸나"를 나타내는 점수다. 지금 방식은 <b>과거를 영원히 기억</b>해서,
+한 번 "욕심쟁이"로 찍히면 이후 아무리 공정하게 굴어도 점수가 회복되지 않는다 — 한번 천민이면 영영 천민인
+<b>카스트</b>처럼. 이 글은 평판이 <b>과거를 조금씩 잊게</b>(망각계수 λ) 만들면 회복이 살아나는지를 실험으로 확인한다.
+핵심 지표 <b>recovery_rate</b> = "한 번 낮아진 점수가 다시 올라오는 속도"(0이면 영영 못 돌아옴).</div>"""
 
 
 def main():
@@ -228,6 +237,7 @@ def main():
 <p class="lead">Beta+λ 평판 · 저평판 <b>회복률</b>로 "한 번 찍힌 에이전트가 회복하는가"를 측정. 망각계수 λ를
 스윕해 <b>불변성과 카스트화의 인과</b>를 분리한다.</p>
 <div class="status">{status}</div>
+{EASY}
 {body}
 <footer>생성: <code>scripts/build_caste_report.py</code> · 구현: <code>antigreedy/governance/reputation_calc.py</code>(beta_reputation),
 <code>beta_ostracism.py</code>, <code>antigreedy/caste_metrics.py</code>, <code>verify_claims.py</code>(caste_lambda) ·

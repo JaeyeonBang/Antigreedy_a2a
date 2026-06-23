@@ -152,8 +152,18 @@ table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;backgro
 th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
 th{background:#f4f7fb;font-weight:700;}tr:last-child td{border-bottom:0;}
 .ok{color:#1f9d55;font-weight:700;}
+.easy{background:#eef7f0;border:1px solid #cfe6d6;border-left:4px solid #2f9e57;border-radius:11px;
+  padding:14px 18px;margin:16px 0;font-size:15px;line-height:1.68;color:#234a32;}
+.easy b{color:#1c7a42;}.easy .lab{font-weight:800;color:#1c7a42;}
 footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:#9aa6b6;font-size:12.5px;}
 """
+
+EASY = """<div class="easy"><span class="lab">💡 배경지식 없이 한 번에.</span>
+<b>진짜 이차투표(QV)</b>는 <b>"한 군데에 몰아 쓰면 값이 제곱으로 비싸지는 정해진 예산"</b>이다. 욕심내서 한 번에
+많이 가져가려 하면 예산이 순식간에 바닥나 <b>스스로 손해</b>를 본다. 그래서 독식이 저절로 억제된다. 이걸 넣었더니
+독점이 절반으로 줄고 동시에 모두가 더 잘 끝냈다 — 이 프로그램에서 <b>공정성·성공률이 둘 다 좋아진 유일한 방법</b>.
+(다만 표본이 작아 통계적으로는 아슬아슬 — "유망하지만 더 큰 실험으로 확인 필요".) <b>독점(top-share)</b>은 낮을수록,
+<b>후생(welfare, 완료율)</b>은 높을수록 좋다.</div>"""
 
 
 def main():
@@ -214,6 +224,7 @@ vs none(독점 줄이나) · qv_rep vs qv_flat(평판가중 이득).</p>
 <p class="lead">강도의 2차 비용을 고정 예산에 부과하는 *진짜* QV + 평판가중. Phase A가 못 한
 "예산 있는 QV"를 구현하고, Sybil 취약점·방어를 단위 회계로 보인다.</p>
 <div class="status">{status}</div>
+{EASY}
 {body}
 <footer>생성: <code>scripts/build_qv_report.py</code> · 구현: <code>antigreedy/governance/qv.py</code>,
 <code>verify_claims.py</code>(qv) · 설계·문헌: <code>docs/related_work.md</code> §QV(Weyl 2017) · 폰트: Pretendard</footer>
