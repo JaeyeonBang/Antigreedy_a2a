@@ -2,10 +2,9 @@
 
 *LLM 에이전트의 탐욕 거버넌스 효과 대부분은 측정 아티팩트다 — 출력 강제 vs 입력 프레이밍의 통제된 검정*
 
-**Status:** Stage-4 revision after major-revision peer review. The headline of the prior draft
-("input framing beats output capping") **did not survive a controlled within-experiment test** and has
-been replaced by what the evidence supports. All numbers are from one shared-baseline run (V6, N=30) on
-GLM-4.6 with bootstrap CIs + permutation tests + Holm correction; raw arrays in `docs/verify_v6.json`.
+**Overview.** This report tests greed governance for LLM agents with a *controlled, shared-baseline
+experiment*. All numbers are from one N=30 run on GLM-4.6 with bootstrap CIs, permutation tests, and
+Holm correction for multiplicity; raw arrays in `docs/verify_v6.json`.
 
 ---
 
@@ -20,24 +19,23 @@ control prompts**, **bootstrap confidence intervals**, two-sample **permutation 
 **Holm correction** for multiplicity. The result is sobering. Of nine pre-specified contrasts, only two
 survive correction: a superordinate-identity prompt robustly reduces monopoly (top-share 0.65→0.41,
 p_holm<.001), and an output "social" policy *reduces* welfare versus no governance (0.66→0.39,
-p_holm=.022). Everything else is an artifact: a reputation-feedback prompt that looked significant under
-separate-baseline testing (N=24, p=.027) is **indistinguishable from no governance** under a shared
-baseline (welfare p=.61) and **indistinguishable from a bare numeric anchor** with no social wording
-(p=.88) — so its apparent effect is instruction-anchoring, not a social mechanism. A *contentless filler*
-prompt scored the **highest** welfare of all, showing input-banner welfare differences are not
-attributable to mechanism design. And the output "social" policy is statistically **indistinguishable
-from a dumb proportional cap** on fairness (p=.13). Our contribution is therefore methodological and
-negative: most reported greed-governance effects are fragile to experimental design, a single decisive
-experiment overturned two of our own multi-seed headlines, and only a controlled, anchor-controlled,
-multiplicity-corrected design separates real mechanism from prompt-length and baseline-draw noise.
+p_holm=.022). Everything else is an artifact: a reputation-feedback prompt is **indistinguishable from no
+governance** under a shared baseline (welfare p=.61) and **indistinguishable from a bare numeric anchor**
+with no social wording (p=.88) — so any apparent effect is instruction-anchoring, not a social mechanism.
+A *contentless filler* prompt scores the **highest** welfare of all, showing input-banner welfare
+differences are not attributable to mechanism design. And the output "social" policy is statistically
+**indistinguishable from a dumb proportional cap** on fairness (p=.13). The contribution is therefore
+methodological: only a controlled, anchor-controlled, multiplicity-corrected design separates real
+mechanism from prompt-length and baseline-draw noise, and most reported greed-governance effects do not
+pass that test.
 
 **초록 (요약).** LLM 에이전트 탐욕 거버넌스 효과를 *공통 baseline·단일 실험·앵커링 대조군·bootstrap·
 순열검정·Holm 보정*으로 통제 검정했다. 9개 사전 대조 중 단 2개만 살아남았다: 상위 정체성은 독점을
 유의하게 줄이고(top 0.65→0.41, p_holm<.001), 출력 '사회' 정책은 welfare를 오히려 낮춘다(0.66→0.39,
 p_holm=.022). 반면 평판 되먹임의 '효과'는 공통 baseline에서 사라지고(welfare p=.61) 숫자 앵커와 구분
 되지 않으며(p=.88) — 사회적 기제가 아니라 앵커링이다. *무내용 필러* 프롬프트가 welfare 최고였다.
-사회 정책은 더미 캡과 공정성에서 구분되지 않는다(p=.13). 기여는 방법론적·부정적이다 — 대부분의 거버넌스
-효과는 실험 설계에 취약하며, 단일 결정적 실험이 우리 자신의 다중-시드 헤드라인 2개를 뒤집었다.
+사회 정책은 더미 캡과 공정성에서 구분되지 않는다(p=.13). 기여는 방법론적이다 — 통제·앵커대조·다중보정
+설계만이 진짜 기제를 노이즈와 구별하며, 보고된 거버넌스 효과 대부분은 그 검정을 통과하지 못한다.
 
 ---
 
@@ -48,19 +46,19 @@ commons [Hammond et al. 2025; Piatti et al. 2024]. A fast-growing literature pro
 the resulting *behavioral greed* — selfish exploitation of a shared pool [Vallinder & Hughes 2025] —
 split between **output enforcement** (caps, fair queuing, reputation/ostracism policies) and
 **input framing** (identity, accountability, reputation feedback). Papers report that these levers
-"work." We set out to *measure which lever works better*, built a testbed to do so, and — after our own
-single-run claims kept reversing — discovered that the harder problem is **telling a real governance
-effect apart from an experimental artifact**.
+"work." But before asking *which lever works better*, a more basic problem must be faced: many reported
+effects are artifacts of experimental design. The harder problem is **telling a real governance effect
+apart from an artifact**.
 
-This paper's contribution is the controlled experiment and its negative result.
+This report's contribution is the controlled experiment and its result.
 1. **A reusable A2A governance substrate** (§3) cleanly separating output policies from input shapers on
    shared state.
 2. **A controlled, within-experiment design** (§4): all levers against one shared baseline, with
    anchoring/length control prompts, bootstrap CIs, permutation tests, and Holm correction.
-3. **A negative/methodological result** (§5–6): only 2 of 9 corrected contrasts survive; the headline
-   "input beats output" does not. A reputation-feedback effect that passed separate-baseline N=24 testing
-   is anchoring, not a social mechanism; a contentless banner "wins" welfare; "social" output policy ≈
-   dumb cap and *hurts* welfare. We document how design choices manufactured two false positives.
+3. **A methodological/negative result** (§5–6): only 2 of 9 corrected contrasts survive. A
+   reputation-feedback effect is anchoring, not a social mechanism; a contentless banner "wins" welfare;
+   "social" output policy ≈ dumb cap and *hurts* welfare; and the *harm* of an emergent-identity banner is
+   independent of its content. Controls reveal which design choices manufacture false positives.
 
 ---
 
@@ -99,9 +97,9 @@ intercept the delivered action; **input shapers** rewrite the prompt before the 
 the pool, starving others. A self-interested persona on a real model makes greed *emerge* (no scripted
 hog). GLM-4.6 via OpenRouter, temperature 0.7. 3 agents, pool=360, workload=120, 8 rounds.
 
-**What the prior draft got wrong (and this design fixes).** Our earlier experiments measured each lever
-against its *own separately drawn* baseline; peer review showed those baselines drift by ~the effect
-size, manufacturing false positives. The controlled design (V6):
+**Why a controlled design is needed.** Measuring each lever against its *own separately drawn* baseline
+lets that baseline drift by ~the effect size, manufacturing false positives (each comparison starts from
+a different starting line). The controlled design prevents this:
 - **One shared baseline, one run:** all 7 arms — `none`, `dumb_cap`, `social`, `reputation_feedback`,
   `superordinate`, and two controls — measured together at N=30.
 - **Anchoring/length controls** to decompose any input-shaper effect: `fairshare_anchor` (the *numeric*
@@ -121,7 +119,7 @@ reproduction is distributional, not bitwise).
 
 ## 5. Results
 
-### 5.1 The controlled table (V6, N=30, shared baseline)
+### 5.1 The controlled table (N=30, shared baseline)
 
 | arm | welfare (boot 95% CI) | top-share (boot 95% CI) |
 |---|---|---|
@@ -147,15 +145,15 @@ reproduction is distributional, not bitwise).
 | welfare: reputation_feedback vs none | .611 | 1.0 | **ns → no welfare effect** |
 | welfare: reputation_feedback vs fairshare_anchor | .881 | 1.0 | **ns → "social" wording adds nothing** |
 
-### 5.3 The reputation-feedback headline was an artifact (F1+F2)
+### 5.3 Reputation feedback is anchoring, not a social mechanism
 
-Under separate-baseline testing (V1, N=24) reputation_feedback showed welfare 0.61→0.79 (p=.027) and
-top-share 0.715→0.522 (p=.019). Under the shared baseline (V6), the *same* prompt shows welfare 0.69 vs
-none 0.66 (**p=.61**) and top-share 0.588 vs 0.651 (**p=.36**) — both null. The earlier "effect" was the
-V1 baseline being a low draw (0.61 vs V6's 0.66), exactly the cross-experiment drift peer review flagged.
-Moreover reputation_feedback ≈ fairshare_anchor (welfare p=.88): stripping the reputation/peer/normative
-language and keeping only the numeric fair-share statement changes nothing — so any effect is
-**instruction-anchoring, not an indirect-reciprocity mechanism**.
+Under the shared baseline, reputation_feedback is indistinguishable from no governance: welfare 0.69 vs
+none 0.66 (**p=.61**), top-share 0.588 vs 0.651 (**p=.36**) — both null. More decisively,
+reputation_feedback ≈ fairshare_anchor (welfare **p=.88**): stripping the reputation/peer/normative
+language and keeping only the numeric fair-share statement changes nothing. So any reputation-feedback
+effect is **instruction-anchoring, not an indirect-reciprocity mechanism** — and a separately-drawn
+baseline is exactly what would mistake this anchor component for a social effect, since the same prompt
+"becomes significant" against a lower baseline draw.
 
 ### 5.4 A contentless banner "wins" welfare
 
@@ -170,54 +168,48 @@ social" story.
 
 Two effects survive a controlled, corrected test:
 1. **Superordinate identity reduces monopoly** (top-share 0.65→0.41, p_holm<.001) — though its welfare
-   effect is null (p=.43). It is the one input lever with a robust behavioral signal — but we hold it to
-   the *same* skepticism that demoted reputation_feedback: superordinate has **no anchoring control of its
-   own** (§7), so part of this reduction could be generic instruction-following rather than identity per
-   se. We report it as a robust-but-**undecomposed** effect, not as proof that identity framing works.
+   effect is null (p=.43). It is the one input lever with a robust behavioral signal — but superordinate
+   has **no anchoring control of its own** (§7), so part of this reduction could be generic
+   instruction-following rather than identity per se. We report it as a robust-but-**undecomposed**
+   effect, not as proof that identity framing works.
 2. **Output "social" policy reduces welfare** vs no governance (0.66→0.39, p_holm=.022), and is
    indistinguishable from a dumb proportional cap on fairness (p=.13). The "social" machinery is, on this
    scenario, a relabeled rate-limiter that also costs welfare.
 
-### 5.6 The *harm* of identity framing is also content-independent (placebo-cluster control; follow-up, different model)
+### 5.6 The *harm* of identity framing is independent of cluster content (placebo-cluster control)
 
-This subsection is a **separate follow-up**, run on a *different* model than V6 (**glm-4.7-flash**, reasoning
-off, N=30, agents 3 and 6). We therefore do not compare its numbers to §5.1–5.5 directly; we read it as a
-*sister* result to §5.4.
+Would an identity *emerged* from observed behavior (who took how much, clustered) be a more honest lever
+than the *imposed* superordinate identity of §5.5? We test this with an `emergent_identity` shaper —
+cluster agents by their resource share, name the "observed groups," and attach the same superordinate
+goal. (This identity experiment is measured on glm-4.7-flash, reasoning off, N=30, agents 3 and 6.)
 
-In §5.5, the one robust input effect was the *imposed* superordinate identity ("ONE TEAM"). Would an
-identity *emerged* from observed behavior (who took how much, clustered) be a more honest lever than an
-imposed one? We tested this with an `emergent_identity` shaper (cluster agents by their resource share,
-name the "observed groups," and attach the same superordinate goal). The result **backfired**: emergent
-identity did not reduce monopoly — it **significantly raised** it above a contentless banner
-(`neutral_filler`) (top-share, p_holm=.031 at n=3, .018 at n=6). This is the *caste-ification* our design
-warned of (labeling agents as a "greedy group" → self-categorization → they take *more*).
+The result **backfires**: emergent identity does not reduce monopoly — it **significantly raises** it
+above a contentless banner (`neutral_filler`) (top-share, p_holm=.031 at n=3, .018 at n=6). This is
+*caste-ification*: labeling agents as a "greedy group" → self-categorization → they take *more*.
 
-The decisive test is the **placebo-cluster control**. `placebo_cluster` is identical to emergent in banner
+Whether this harm comes from the clusters *correctly tracking* greed or from the *divisive banner itself*
+is settled by the **placebo-cluster control**. `placebo_cluster` is identical to emergent in banner
 wording, cluster sizes, and superordinate goal, but its **membership is random** (a fabricated grouping).
-If the harm came from the clusters *correctly tracking* greed, the placebo should be harmless. Instead,
-**emergent ≈ placebo, statistically indistinguishable** (p_holm=1.0 at both n=3 and n=6). The harm comes
-not from the *content* of the grouping but from the **act of injecting a divisive "observed groups"
-banner** — true or fabricated. At n=6, even the placebo significantly out-monopolized the contentless
-banner (p_holm=.0018): direct evidence that the divisive frame *per se* is what raises concentration.
+If the cluster content were the cause, the placebo should be harmless. Instead, **emergent ≈ placebo,
+statistically indistinguishable** (p_holm=1.0 at both n=3 and n=6); at n=6 even the placebo significantly
+out-monopolizes the contentless banner (p_holm=.0018). The harm comes not from the *content* of the
+grouping but from the **act of injecting a divisive "observed groups" banner** — true or fabricated.
 
 This is the **mirror image of §5.4**. Where §5.4 showed the *benefit* of a *neutral* banner is independent
 of social design, §5.6 shows the *harm* of a *divisive* banner is independent of the clustering content.
 Together: measured input-framing effects track a coarse **frame-valence axis (neutral vs. divisive)**, not
-the designed social mechanism. (Caveat: by power, emergent≈placebo is "no evidence that behavioral
-derivation worsens the harm," not proof of identity; and the different model means we claim no
-generality. Detail: `docs/verify_phase_d_placebo.md`.)
+the designed social mechanism.
 
 ---
 
 ## 6. Discussion
 
-**The headline did not survive; that is the finding.** Of the two earlier "input wins" pillars,
-reputation-feedback collapsed to an anchoring artifact and superordinate's welfare benefit is null; only
-its monopoly reduction is real. We therefore cannot claim input framing beats output capping. What we can
-claim is sharper and more useful to the field: **most reported greed-governance effects are fragile to
-experimental design.** Separate-baseline multi-seed testing — standard practice — produced two false
-positives in our own hands (V1 reputation, the earlier "social welfare 0.75"), both killed by a shared
-baseline and anchoring controls.
+**Most effects do not survive the controlled test; that is the central result.** On the input side,
+reputation-feedback reduces to an anchoring artifact and superordinate's welfare benefit is null; only its
+monopoly reduction is real. So "input framing beats output capping" does not hold. The sharper, more
+useful claim is: **most reported greed-governance effects are fragile to experimental design.**
+Separate-baseline testing turns effect-size-worth of drift into false positives, and only a shared
+baseline with anchoring controls filters them out.
 
 **Methodological prescriptions.** (1) Measure all governance arms against *one* baseline in one run;
 per-arm baselines drift by the effect size at N≤30. (2) For any prompt-framing intervention, include an
@@ -236,10 +228,14 @@ in-context instruction-following.
 
 ## 7. Limitations
 
-- **Single model, single scenario, one operating point.** GLM-4.6; resource-task, 3 agents, pool=360,
-  r=8, N=30. The welfare-cost-of-caps finding is config-bound: where ungoverned greed does not starve
-  everyone (none welfare 0.66), caps mostly throttle finishers; in a catastrophic regime caps might
-  *rescue* welfare. A pool/agent sweep is the key next step.
+- **Model, scenario, operating point.** The main experiment (§5.1–5.5) is GLM-4.6; the §5.6 identity
+  experiment is glm-4.7-flash (reasoning off); resource-task, pool=360, r=8, N=30. Both are single-model
+  measurements, so we claim no model generality. The welfare-cost-of-caps finding is config-bound: where
+  ungoverned greed does not starve everyone (none welfare 0.66), caps mostly throttle finishers; in a
+  catastrophic regime caps might *rescue* welfare. A pool/agent sweep is the key next step.
+- **The §5.6 null is not proof of identity.** emergent ≈ placebo is "no evidence that behavioral
+  derivation *worsens* the harm," not proof the two are equal (limited power); the point estimate still
+  has emergent marginally worse.
 - **Null ≠ absence.** N=30 fails to detect small effects; reputation_feedback/superordinate-welfare are
   "not significant," not "zero." But the anchoring null (rep ≈ anchor, p=.88) is positive evidence
   against the *social* interpretation specifically.
@@ -255,27 +251,16 @@ in-context instruction-following.
 
 A controlled, anchor-controlled, multiplicity-corrected experiment on LLM-agent greed governance finds
 that **most candidate effects are measurement artifacts**: of nine contrasts, only superordinate-identity
-monopoly reduction and the welfare *cost* of an output "social" policy survive, while the
-reputation-feedback "win" is cross-experiment baseline drift plus numeric anchoring, and a content-free
-banner tops welfare. The reusable substrate, the anchoring-control methodology, and the documented
-self-correction (two multi-seed headlines overturned by one decisive run) are the contributions. Future
-work: (1) anchor-control superordinate identity; (2) pool/agent sweep to map where output caps help vs.
-hurt welfare; (3) multi-model replication and N≥100 for the surviving effects; (4) longer-horizon,
-repeated-interaction scenarios where indirect-reciprocity mechanisms (absent here) could actually operate.
+monopoly reduction and the welfare *cost* of an output "social" policy pass the controlled test, while the
+reputation-feedback effect reduces to baseline drift plus numeric anchoring, a content-free banner tops
+welfare, and the *harm* of an emergent-identity banner is independent of its content. The contributions
+are the reusable A2A substrate, the anchoring-control methodology, and a clean separation of effects that
+pass the controlled test from those that do not. Future work: (1) anchor-control superordinate identity;
+(2) pool/agent sweep to map where output caps help vs. hurt welfare; (3) multi-model replication and
+N≥100 for the surviving effects; (4) longer-horizon, repeated-interaction scenarios where
+indirect-reciprocity mechanisms (absent here) could actually operate.
 
 ---
-
-## Appendix A — Response to Reviewers (Major Revision)
-
-| Issue | Reviewer | Resolution |
-|---|---|---|
-| F1 input/output never co-located; baseline drift | DA-A1, R1 | **V6 runs all arms vs one shared baseline (N=30).** Confirmed the artifact: reputation-feedback's V1 effect vanished. |
-| F2 reputation_feedback has no anchoring control | DA-A2, R2 | **Added `fairshare_anchor` + `neutral_filler`.** rep ≈ anchor (p=.88) → effect is anchoring, not social. Headline removed. |
-| F3 invalid normal-approx z; no multiplicity control | R1 | **Bootstrap CIs + permutation tests + Holm.** Three prior "p<.05" effects do not survive. |
-| F4 "social = cap" overgeneralized | R2 | Scoped to "our reputation+ostracism policy, this config"; V6 confirms social ≈ dumb cap (p=.13). 7-agent contradiction acknowledged as config-dependent. |
-| F5 "multi-seed" misnomer; provenance | R3 | Renamed to "replications"; V6 JSON now stores config + raw per-replication arrays. Provider-pinning + cost logging noted as remaining. |
-| Novelty overclaim | R2 | §2 reframed: dichotomy is mechanism-design vs in-context-steering; contribution is the controlled test + anchoring null. |
-| Title overclaim | R2, DA-A3 | Title changed from "Input Framing Beats Output Capping" to the negative/methods result. |
 
 ## References (selected; full links in `docs/research_2.md`)
 - Hammond et al. *Multi-Agent Risks from Advanced AI*, 2025. arXiv:2502.14143

@@ -161,7 +161,7 @@ def build_charts(data):
         '<span class="star">★</span>=Holm 생존/주목 효과'
         '</div>')
     return (f'<section class="viz"><h2 class="vh">실험 결과 한눈에 보기 '
-            f'(V6 · GLM-4.6 · N=30)</h2>{legend}'
+            f'(GLM-4.6 · N=30)</h2>{legend}'
             f'<div class="grid2">{welfare}{top}</div>{contrasts}</section>')
 
 
@@ -171,7 +171,7 @@ def build_charts(data):
 # 서버가 없으므로 안내만 표시한다(우아한 강등).
 DASHBOARD_WIDGET = """
 <section class="dash" id="dash">
-  <p class="dnote">이 리포트의 V6 수치는 배치 스크립트(<code>scripts/verify_claims.py</code>)에서
+  <p class="dnote">이 리포트의 수치는 배치 스크립트(<code>scripts/verify_claims.py</code>)에서
   나온 것이고, 아래 <b>라이브/히스토리</b>는 대시보드에서 사람이 직접 돌린 A/B run 들이다.
   같은 <code>resource-task</code> 시나리오·같은 출력/입력 레버를 쓰므로, 표의 각 조건을
   <b>직접 눈으로 재현</b>해 볼 수 있다.</p>
@@ -416,7 +416,7 @@ def main():
     page = f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Antigreedy — 논문 리포트 (V6)</title>
+<title>Antigreedy — 탐욕 거버넌스 통제 실험 보고서</title>
 <style>{CSS}</style></head>
 <body><div class="wrap">
 <div class="status">📄 자동 생성 리포트 · 본문 <code>docs/paper_draft_ko.md</code> +
