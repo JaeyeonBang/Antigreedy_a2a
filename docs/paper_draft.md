@@ -178,6 +178,35 @@ Two effects survive a controlled, corrected test:
    indistinguishable from a dumb proportional cap on fairness (p=.13). The "social" machinery is, on this
    scenario, a relabeled rate-limiter that also costs welfare.
 
+### 5.6 The *harm* of identity framing is also content-independent (placebo-cluster control; follow-up, different model)
+
+This subsection is a **separate follow-up**, run on a *different* model than V6 (**glm-4.7-flash**, reasoning
+off, N=30, agents 3 and 6). We therefore do not compare its numbers to §5.1–5.5 directly; we read it as a
+*sister* result to §5.4.
+
+In §5.5, the one robust input effect was the *imposed* superordinate identity ("ONE TEAM"). Would an
+identity *emerged* from observed behavior (who took how much, clustered) be a more honest lever than an
+imposed one? We tested this with an `emergent_identity` shaper (cluster agents by their resource share,
+name the "observed groups," and attach the same superordinate goal). The result **backfired**: emergent
+identity did not reduce monopoly — it **significantly raised** it above a contentless banner
+(`neutral_filler`) (top-share, p_holm=.031 at n=3, .018 at n=6). This is the *caste-ification* our design
+warned of (labeling agents as a "greedy group" → self-categorization → they take *more*).
+
+The decisive test is the **placebo-cluster control**. `placebo_cluster` is identical to emergent in banner
+wording, cluster sizes, and superordinate goal, but its **membership is random** (a fabricated grouping).
+If the harm came from the clusters *correctly tracking* greed, the placebo should be harmless. Instead,
+**emergent ≈ placebo, statistically indistinguishable** (p_holm=1.0 at both n=3 and n=6). The harm comes
+not from the *content* of the grouping but from the **act of injecting a divisive "observed groups"
+banner** — true or fabricated. At n=6, even the placebo significantly out-monopolized the contentless
+banner (p_holm=.0018): direct evidence that the divisive frame *per se* is what raises concentration.
+
+This is the **mirror image of §5.4**. Where §5.4 showed the *benefit* of a *neutral* banner is independent
+of social design, §5.6 shows the *harm* of a *divisive* banner is independent of the clustering content.
+Together: measured input-framing effects track a coarse **frame-valence axis (neutral vs. divisive)**, not
+the designed social mechanism. (Caveat: by power, emergent≈placebo is "no evidence that behavioral
+derivation worsens the harm," not proof of identity; and the different model means we claim no
+generality. Detail: `docs/verify_phase_d_placebo.md`.)
+
 ---
 
 ## 6. Discussion
