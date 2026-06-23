@@ -123,6 +123,56 @@ def results_block():
 """
 
 
+def placebo_block():
+    """verify_phase_d_placebo.json 로드 → 위약-군집 대조 결과 차트+표+분석(없으면 빈 문자열)."""
+    import json
+    jp = OUT.parent / "verify_phase_d_placebo.json"
+    if not jp.exists():
+        return ""
+    d = json.loads(jp.read_text(encoding="utf-8"))
+    A = d["arms"]; cfg = d["config"]
+    order = ["none", "emergent", "placebo_cluster", "neutral_filler"]
+    col = {"none": "#7a8699", "emergent": "#e5534b", "placebo_cluster": "#d98a2b", "neutral_filler": "#8a94a6"}
+    W, H = 720, 280; pl, pr, pt, pb = 46, 14, 18, 64
+    pw, ph = W - pl - pr, H - pt - pb; slot = pw / len(order); bw = slot * 0.5
+
+    def y(v): return pt + ph * (1 - v)
+    s = [f'<svg viewBox="0 0 {W} {H}" class="chart">']
+    for g in (0, 0.25, 0.5, 0.75, 1.0):
+        s.append(f'<line x1="{pl}" y1="{y(g):.1f}" x2="{W-pr}" y2="{y(g):.1f}" stroke="#eef1f6"/>')
+        s.append(f'<text x="{pl-6}" y="{y(g)+3:.1f}" text-anchor="end" fill="#9aa6b6" font-size="10">{g:.2f}</text>')
+    for i, arm in enumerate(order):
+        a = A[arm]; cx = pl + slot * i + slot / 2; x = cx - bw / 2
+        s.append(f'<rect x="{x:.1f}" y="{y(a["top_mean"]):.1f}" width="{bw:.1f}" height="{y(0)-y(a["top_mean"]):.1f}" rx="3" fill="{col[arm]}"/>')
+        s.append(f'<text x="{cx:.1f}" y="{y(a["top_mean"])-5:.1f}" text-anchor="middle" fill="#0f1722" font-size="11.5" font-weight="700">{a["top_mean"]:.3f}</text>')
+        s.append(f'<text x="{cx:.1f}" y="{y(0)+15:.1f}" text-anchor="middle" fill="#3a4150" font-size="11" font-weight="600">{arm.replace("_cluster","")}</text>')
+        s.append(f'<text x="{cx:.1f}" y="{y(0)+30:.1f}" text-anchor="middle" fill="#7a8699" font-size="10">welfare {a["comp_mean"]:.2f}</text>')
+    s.append(f'<text x="{W-pr}" y="14" text-anchor="end" fill="#aab3c0" font-size="10">{cfg["model"]} &#183; N={cfg["seeds"]}</text>')
+    s.append("</svg>")
+    chart = (f'<figure class="fig wide"><figcaption><b>그림 P. 위약-군집 대조 — top-share(독점)</b>'
+             f'<br><span class="sub"><b style="color:#e5534b">emergent(실제 군집)</b>와 <b style="color:#d98a2b">placebo(무작위 군집·동일 배너)</b>가 '
+             f'통계적으로 구별되지 않는다 &#8594; 해악은 군집 <i>내용</i>이 아니라 <i>분열 배너 주입</i>에서 온다.</span></figcaption>{"".join(s)}</figure>')
+    rows = ""
+    for c in d["contrasts"]:
+        cls = ' style="background:#eefaf1"' if c["sig"] else ""
+        verdict = "✅ SIG" if c["sig"] else "ns"
+        rows += (f'<tr{cls}><td>{c["label"]}</td><td>{c["p"]:.4f}</td>'
+                 f'<td><b>{c["p_holm"]:.4f}</b></td><td>{verdict}</td></tr>')
+    table = ('<table><thead><tr><th>대조</th><th>p</th><th>p_holm</th><th>판정</th></tr></thead>'
+             f'<tbody>{rows}</tbody></table>')
+    emp = A["emergent"]["top_mean"]; plp = A["placebo_cluster"]["top_mean"]
+    return f"""
+<h2 id="placebo">★★ 후속: 위약-군집 대조 (N={cfg['seeds']}) — 원인은 "분열 배너", "군집 내용" 아님</h2>
+<div class="callout warn"><b>한 줄 결론.</b> emergent의 역효과는 <b>군집이 실제 탐욕을 반영해서가 아니다</b>.
+멤버십을 <b>무작위로 섞은 위약(placebo {plp:.3f})</b>이 <b>실제 군집(emergent {emp:.3f})과 구별되지 않았다</b>(p_holm 1.0).
+즉 해악을 나르는 것은 <b>분열적 "OBSERVED GROUPS" 배너의 주입 행위 자체</b> &#8212; 진실이든 날조든. "행동에서 정체성을 창발시킨다"는 설계 전제는 무작위 분할 대비 이득 <b>0</b>.</div>
+{chart}
+{table}
+<p><b>해석.</b> emergent는 무내용 길이대조(filler)보다 유의하게 독점↑(p_holm .031)로 <b>역효과 방향은 재현</b>됐으나, <b>핵심 대조 emergent vs placebo가 무유의</b>다.
+검정력 한계상 "동일"의 증명이 아니라 <b>"행동-도출이 해악을 키운다는 증거의 부재"</b>로 읽어야 한다(점추정은 여전히 emergent가 약간 나쁨). 상세&#183;한계 = <code>docs/verify_phase_d_placebo.md</code>.</p>
+"""
+
+
 CSS = """
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 :root{--ink:#1a2230;--mut:#5b6675;--line:#e3e8ef;--bg:#fbfcfe;--card:#fff;}
@@ -160,7 +210,7 @@ footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:#
 
 
 def main():
-    body = results_block() + f"""
+    body = results_block() + placebo_block() + f"""
 <h2 id="what">1. Phase D는 무엇인가 (설계·구현)</h2>
 <p>V6의 통제 실험에서 <b>유일하게 살아남은 입력측 효과</b>는 <em>부과된</em> "ONE TEAM" 배너(superordinate)였다
 (독점 0.65&#8594;0.41, p_holm&lt;.001). 그런데 그 효과가 <b>"정체성" 때문인가, 아니면 단지 "지시(instruction)"가

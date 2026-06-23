@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import math
+import random as _random
 
 from antigreedy.governance.types import SharedState
 
@@ -72,11 +73,16 @@ def cluster_agents(state: SharedState, agents: list[str], thresh: float = 0.15) 
     return out
 
 
-def identity_frame(agent_id: str, state: SharedState, agents: list[str]) -> str:
+def identity_frame(agent_id: str, state: SharedState, agents: list[str],
+                   clusters: dict[str, int] | None = None) -> str:
     """창발 정체성 배너: 관측된 행동 군집(내 부류·다른 부류)을 *데이터에서* 명시하고,
     상위 목표(전원 완료)를 같은 강도로 부과한다. 부과형 superordinate와 비교 가능하되
-    정체성의 *출처*가 다르다(부과 아님, 관측 창발)."""
-    clusters = cluster_agents(state, agents)
+    정체성의 *출처*가 다르다(부과 아님, 관측 창발).
+
+    ``clusters``를 주면 그 군집 배치를 그대로 쓴다(위약 대조군이 *동일 배너*에 무작위 군집을
+    주입하기 위함). 미지정이면 행동에서 군집을 계산한다."""
+    if clusters is None:
+        clusters = cluster_agents(state, agents)
     mine = clusters[agent_id]
     peers = [a for a in agents if clusters[a] == mine and a != agent_id]
     others = [a for a in agents if clusters[a] != mine]
@@ -96,3 +102,43 @@ def identity_frame(agent_id: str, state: SharedState, agents: list[str]) -> str:
         "all groups; if even one starves, the whole team scores 0. Act so the other group can "
         "finish too.\n"
     )
+
+
+def _stable_seed(agents: list[str], state: SharedState) -> int:
+    """행동(점유율)·로스터에서 파생한 *프로세스 독립* 결정론 시드. 파이썬 ``hash()``는
+    PYTHONHASHSEED로 매 프로세스 달라져 재현 불가하므로, 수동으로 정수를 접는다.
+    상태(점유 패턴)가 다르면 시드도 달라져 위약 군집이 에피소드마다 자연히 섞인다."""
+    seed = 0
+    for a in agents:
+        share_q = int(round(_share(a, state) * 1_000_000))
+        seed = (seed * 1_000_003 + sum(ord(c) for c in a) + share_q) & 0x7FFFFFFF
+    return seed
+
+
+def placebo_clusters(state: SharedState, agents: list[str]) -> dict[str, int]:
+    """위약(placebo) 군집: ``cluster_agents``와 *동일한 군집-크기 분포*를 갖되, 멤버십은 행동과
+    무관하게 무작위로 섞는다(상태에서 결정론적으로 시드 → 재현 가능). 배너 텍스트는 emergent와
+    같으므로(``identity_frame`` 재사용), emergent − placebo 차이는 오직 '군집이 실제 탐욕 행동을
+    반영하는가' 하나로 분리된다. (위약 = 같은 외형, 무효 성분.)
+
+    주의(n=3 한계): 2-1 분할일 때 무작위 짝이 우연히 실제 짝과 같을 확률 1/3 — 멤버십은
+    *기댓값상* 행동과 탈상관이며, 30 시드 평균에서 대조가 성립한다. 리포트에 명시한다."""
+    real = cluster_agents(state, agents)
+    counts: dict[int, int] = {}
+    for cid in real.values():
+        counts[cid] = counts.get(cid, 0) + 1
+    sizes = sorted(counts.values(), reverse=True)
+    shuffled = list(agents)
+    _random.Random(_stable_seed(agents, state)).shuffle(shuffled)
+    out: dict[str, int] = {}
+    idx = 0
+    for new_cid, sz in enumerate(sizes):
+        for _ in range(sz):
+            out[shuffled[idx]] = new_cid
+            idx += 1
+    return out
+
+
+def placebo_identity_frame(agent_id: str, state: SharedState, agents: list[str]) -> str:
+    """emergent와 *동일한 배너*에 위약(무작위) 군집을 주입한다 — Phase D 역효과의 robust 검정용."""
+    return identity_frame(agent_id, state, agents, clusters=placebo_clusters(state, agents))

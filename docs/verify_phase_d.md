@@ -38,10 +38,10 @@
 
 - **모델·곡선 stand-in:** GLM-4.7-flash(reasoning off) — V6는 glm-4.6이므로 imposed 수치를 V6 superordinate(독점 0.65→0.41, p_holm<.001)와 *직접* 비교 불가(단, Phase D는 imposed baseline 내장이라 *내부 대조*는 유효). 클러스터러는 순수 파이썬 단일-연결 = Leiden 자리표시자 — Leiden으로 바꾸면 결과가 달라질 수 있다.
 - **neutral_filler degenerate:** welfare 1.00/top 0.333이 30 에피소드 전부 동일 — flash가 filler의 "간결·평소대로" 지시를 매우 문자적으로 따른 *모델 아티팩트* 가능성. flash는 4.6보다 greed가 약함(none welfare 0.80 vs V6 0.66).
-- **n=3·단일 시나리오·환원 배제 미수행** — "창발 정체성이 인과인가 상관인가"의 위약-군집/모듈성 귀무검정(related_work §C.9)은 미실시. 단 *역효과*는 약한 효과보다 해석이 분명.
+- **n=3·단일 시나리오.** "창발 정체성이 인과인가 상관인가"의 **위약-군집 귀무검정은 후속 실험에서 수행** → [`verify_phase_d_placebo.md`](verify_phase_d_placebo.md): emergent vs placebo 무유의(p_holm=1.0)로, 역효과는 *행동기반 군집 내용*이 아니라 *분열 배너 주입 자체*에서 옴이 드러났다.
 
 ## 결론
 
-**창발 정체성(v0)은 anti-greedy 레버로 실패했고, 데이터는 카스트화 역효과 가설을 지지한다.** 이는 부정적이지만 *정보가 큰* 결과 — "정체성을 행동에서 창발시키면 더 낫다"는 직관을 반증하고, 부과형이 (있다면) 더 안전함을 시사한다. 다음: Leiden 클러스터러로 교체 + 위약-군집 대조 + glm-4.6 동일모델 재현으로 *역효과가 robust한지* 확인.
+**창발 정체성(v0)은 anti-greedy 레버로 실패했고, 데이터는 카스트화 역효과 가설을 지지한다.** 이는 부정적이지만 *정보가 큰* 결과 — "정체성을 행동에서 창발시키면 더 낫다"는 직관을 반증하고, 부과형이 (있다면) 더 안전함을 시사한다. **후속 위약-군집 대조**([`verify_phase_d_placebo.md`](verify_phase_d_placebo.md))는 한 발 더 나아가: 역효과는 *행동기반 군집*이 아니라 *분열 배너 주입 자체*에서 오며(emergent≈placebo, p_holm=1.0), 창발 설계는 무작위 분할 대비 이점이 0이었다. 다음(선택): 에이전트 6+로 위약 정제·Leiden 비자명화 + glm-4.6 동일모델 재현.
 
 *아티팩트: [`verify_phase_d.json`](verify_phase_d.json)(원자료·통계), 하니스 [`scripts/verify_claims.py`](../scripts/verify_claims.py) `run_phase_d`.*

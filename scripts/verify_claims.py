@@ -367,10 +367,53 @@ async def run_phase_d(backend, seeds, agents, pool, workload, rounds, model, tem
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_phase_d_placebo(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """Phase D 후속 — *위약 군집 대조*: phase_d에서 emergent_identity는 역효과(독점 ↑, caste-ification)
+    였다. 그 역효과가 (a) 군집이 *실제 탐욕 행동을 반영*해서인가, 아니면 (b) *어떤 군집 서사든*
+    (거짓이라도) 주입하면 생기는가? placebo_cluster는 emergent와 배너·군집 크기·상위 목표가 모두
+    동일하되 멤버십만 무작위. 핵심 대조 = emergent vs placebo: 차이 없으면 (b) 주입 기제 자체가
+    원인(역효과 robust·내용 무관), placebo만 무해하면 (a) 행동기반 caste-ification이 진짜 원인."""
+    print(f"\n=== Phase D 위약 대조: emergent vs placebo (공통 baseline, N={seeds}, {agents}ag, rounds={rounds}) ===")
+    arms_spec = [
+        ("none", _intercept_none, []),
+        ("emergent", _intercept_none, ["emergent_identity"]),         # 실제 행동 군집
+        ("placebo_cluster", _intercept_none, ["placebo_cluster"]),    # ★ 동일 배너·무작위 군집
+        ("neutral_filler", _intercept_none, ["neutral_filler"]),      # 길이/지시성 대조
+    ]
+    arms = {}
+    for name, ib, sh in arms_spec:
+        a = await _seeded(name, ib, sh, agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        print(f"{name:<16} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    contrasts = [
+        ("top emergent vs placebo (행동신호 순효과)", C["emergent"]["top_raw"], C["placebo_cluster"]["top_raw"]),
+        ("welfare emergent vs placebo", C["emergent"]["comp_raw"], C["placebo_cluster"]["comp_raw"]),
+        ("top placebo vs none (거짓군집만으로 독점 변하나)", C["placebo_cluster"]["top_raw"], C["none"]["top_raw"]),
+        ("top placebo vs neutral_filler (길이 이상인가)", C["placebo_cluster"]["top_raw"], C["neutral_filler"]["top_raw"]),
+        ("top emergent vs none (역효과 재현)", C["emergent"]["top_raw"], C["none"]["top_raw"]),
+        ("top emergent vs neutral_filler (역효과 재현)", C["emergent"]["top_raw"], C["neutral_filler"]["top_raw"]),
+    ]
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    print("\n--- 순열검정 + Holm (유의 = p_adj<0.05) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<40} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "phase_d_placebo", "config": {"model": model, "temp": temp, "agents": agents,
+            "pool": pool, "workload": workload, "rounds": rounds, "seeds": seeds},
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
-                    choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue", "phase_d"])
+                    choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
+                             "phase_d", "phase_d_placebo"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -401,6 +444,8 @@ async def main():
         res = await run_welfare_rescue(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "phase_d":
         res = await run_phase_d(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "phase_d_placebo":
+        res = await run_phase_d_placebo(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 

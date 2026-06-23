@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from antigreedy.governance.types import SharedState
-from antigreedy.scenario.prompt_shapers import emergent_identity
+from antigreedy.scenario.prompt_shapers import emergent_identity, placebo_cluster
 from antigreedy.scenario.reputation_identity import (
-    cluster_agents, cosine, identity_frame, _share,
+    cluster_agents, cosine, identity_frame, placebo_clusters,
+    placebo_identity_frame, _share,
 )
+from collections import Counter
 
 
 def _state(shares: dict[str, int]) -> SharedState:
@@ -72,3 +74,46 @@ def test_emergent_identity_falls_back_to_turn_log_roster():
     st = _state({"A": 300, "B": 60, "C": 60})
     out = emergent_identity("A", st, "P", {"n": 3})
     assert out.endswith("P") and "OBSERVED GROUPS" in out
+
+
+# --- placebo-cluster control (robustness of the caste-ification backfire) ---
+
+def test_placebo_preserves_cluster_size_multiset():
+    # real split: A hog -> sizes {2,1}; placebo must keep the SAME size multiset, random membership
+    st = _state({"A": 300, "B": 60, "C": 60})
+    real = cluster_agents(st, ["A", "B", "C"])
+    plac = placebo_clusters(st, ["A", "B", "C"])
+    real_sizes = sorted(Counter(real.values()).values())
+    plac_sizes = sorted(Counter(plac.values()).values())
+    assert real_sizes == plac_sizes == [1, 2]
+
+
+def test_placebo_is_deterministic_for_same_state():
+    st = _state({"A": 300, "B": 60, "C": 60})
+    p1 = placebo_clusters(st, ["A", "B", "C"])
+    p2 = placebo_clusters(st, ["A", "B", "C"])
+    assert p1 == p2  # reproducible across calls/processes (no salted hash, no Random() global)
+
+
+def test_placebo_uniform_behavior_is_one_group():
+    # no behavioral split -> sizes {3} -> placebo also one group (matches emergent's "NOT split")
+    st = _state({"A": 100, "B": 100, "C": 100})
+    plac = placebo_clusters(st, ["A", "B", "C"])
+    assert len(set(plac.values())) == 1
+
+
+def test_placebo_identity_frame_same_banner_shape_as_emergent():
+    # identical wording/structure to emergent; ONLY membership provenance differs (inert)
+    st = _state({"A": 300, "B": 60, "C": 60})
+    frame = placebo_identity_frame("B", st, ["A", "B", "C"])
+    assert "OBSERVED GROUPS" in frame
+    assert "EMERGED" in frame                       # same banner text as emergent (placebo = same look)
+    assert "EVERY one of the 3 agents" in frame     # superordinate goal retained
+
+
+def test_placebo_cluster_shaper_prepends_and_uses_ctx_agents():
+    st = _state({"A": 300, "B": 60, "C": 60})
+    out = placebo_cluster("B", st, "BASE_PROMPT", {"n": 3, "agents": ["A", "B", "C"]})
+    assert out.endswith("BASE_PROMPT")
+    assert out.startswith("=== OBSERVED GROUPS")
+    assert len(out) > len("BASE_PROMPT")

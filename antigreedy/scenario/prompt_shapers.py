@@ -123,6 +123,16 @@ def emergent_identity(agent: str, state: SharedState, base_prompt: str, ctx: dic
     return identity_frame(agent, state, list(agents)) + base_prompt
 
 
+def placebo_cluster(agent: str, state: SharedState, base_prompt: str, ctx: dict) -> str:
+    """Phase D 대조군 (위약 군집): emergent_identity와 *배너·군집 크기·상위 목표가 모두 동일*하되,
+    군집 멤버십이 실제 행동이 아니라 무작위(결정론적). emergent − placebo 차이 = '군집이 진짜
+    탐욕 행동을 반영하는가'의 순효과. 둘 다 역효과면 → 어떤 군집 서사든(거짓이라도) 역효과
+    (=주입 기제 자체); placebo만 무해하면 → 행동기반 caste-ification이 진짜 원인."""
+    from antigreedy.scenario.reputation_identity import placebo_identity_frame
+    agents = ctx.get("agents") or sorted({a for a, _, _ in state.turn_log} | {agent})
+    return placebo_identity_frame(agent, state, list(agents)) + base_prompt
+
+
 SHAPERS: dict[str, Shaper] = {
     "superordinate_identity": superordinate_identity,
     "accountability": accountability,
@@ -130,6 +140,7 @@ SHAPERS: dict[str, Shaper] = {
     "fairshare_anchor": fairshare_anchor,
     "neutral_filler": neutral_filler,
     "emergent_identity": emergent_identity,
+    "placebo_cluster": placebo_cluster,
 }
 
 
