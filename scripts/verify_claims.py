@@ -30,6 +30,7 @@ from antigreedy.governance.nullcap import FractionCapPolicy, chain_intercept
 from antigreedy.governance.reputation_calc import linear_reputation, beta_reputation
 from antigreedy.governance.elder import ElderInterceptPoint
 from antigreedy.governance.elder_judge import judge as elder_judge
+from antigreedy.governance.qv import QuadraticVotingPolicy
 from antigreedy.governance.types import SharedState
 from antigreedy.caste_metrics import recovery_rate
 from antigreedy.metrics import mean_ci, wilson_interval
@@ -79,6 +80,12 @@ def _intercept_elder(alpha, backend=None, lam=1.0, lam_down=None):
         judge_fn = None
     return lambda state: ElderInterceptPoint(state, alpha=alpha, judge_fn=judge_fn,
                                              lam=lam, lam_down=lam_down)
+
+
+def _intercept_qv(use_rep, budget_B):
+    """Phase 3 (design C): 진짜 QV(2차 비용 + 고정 예산). use_rep=True면 평판가중(저평판 비쌈)."""
+    return lambda state: chain_intercept(
+        [QuadraticVotingPolicy(use_rep=use_rep, budget_B=budget_B, floor=30)], state)
 
 
 async def _one(name, intercept_builder, shapers, agents, pool, workload, rounds, backend,
@@ -533,11 +540,54 @@ async def run_elder(backend, seeds, agents, pool, workload, rounds, model, temp)
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_qv(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """Phase 3 (design C): *진짜* QV(2차 비용 + 고정 예산 + 평판가중)가 독점을 줄이나? Phase A의
+    1/(1+o²) 캡은 예산이 없어 진짜 QV가 아니었다(리뷰 NO-GO). 여기선 누적 2차 지출을 예산 B에
+    묶어 한곳에 몰아쓰면 비용이 제곱으로 폭증하게 한다. 평판가중(qv_rep, cost=d²/rep)이 무가중
+    (qv_flat)보다 이득인가 = 사용자가 물었던 'QV+평판 결합본'의 검정. Sybil 취약점/방어는 단위
+    테스트(test_qv.py)로 결정론적으로 보였고(분할→비용 1/k, 신원귀속 예산→이득 0), 여기선 QV의
+    독점 억제 효과를 LLM 창발 greed에서 측정한다."""
+    QV_BUDGET = 20000.0
+    print(f"\n=== Phase 3: 진짜 QV (공통 baseline, N={seeds}, {agents}ag, rounds={rounds}, B={QV_BUDGET:.0f}) ===")
+    arms_spec = [
+        ("none", _intercept_none),
+        ("qv_flat", _intercept_qv(use_rep=False, budget_B=QV_BUDGET)),   # 무가중 2차 예산
+        ("qv_rep", _intercept_qv(use_rep=True, budget_B=QV_BUDGET)),     # ★ 평판가중 (결합본)
+    ]
+    arms = {}
+    for name, ib in arms_spec:
+        a = await _seeded(name, ib, [], agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        print(f"{name:<10} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    contrasts = [
+        ("top qv_rep vs none (평판가중 QV가 독점 줄이나)", C["qv_rep"]["top_raw"], C["none"]["top_raw"]),
+        ("top qv_flat vs none (무가중 QV가 독점 줄이나)", C["qv_flat"]["top_raw"], C["none"]["top_raw"]),
+        ("top qv_rep vs qv_flat (평판가중 이득)", C["qv_rep"]["top_raw"], C["qv_flat"]["top_raw"]),
+        ("welfare qv_rep vs none", C["qv_rep"]["comp_raw"], C["none"]["comp_raw"]),
+        ("welfare qv_flat vs none", C["qv_flat"]["comp_raw"], C["none"]["comp_raw"]),
+        ("welfare qv_rep vs qv_flat", C["qv_rep"]["comp_raw"], C["qv_flat"]["comp_raw"]),
+    ]
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    print("\n--- 순열검정 + Holm (유의 = p_adj<0.05) ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<44} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "qv", "config": {"model": model, "temp": temp, "agents": agents,
+            "pool": pool, "workload": workload, "rounds": rounds, "seeds": seeds, "budget_B": QV_BUDGET},
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
-                             "phase_d", "phase_d_placebo", "caste_lambda", "elder"])
+                             "phase_d", "phase_d_placebo", "caste_lambda", "elder", "qv"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -574,6 +624,8 @@ async def main():
         res = await run_caste_lambda(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "elder":
         res = await run_elder(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "qv":
+        res = await run_qv(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 
