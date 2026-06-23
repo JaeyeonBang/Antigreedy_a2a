@@ -75,6 +75,54 @@ def diagram_clustering():
             f'</figcaption>{"".join(s)}</figure>')
 
 
+def results_block():
+    """verify_phase_d.json에서 결과를 로드해 차트+대조표+분석을 렌더(없으면 빈 문자열)."""
+    import json
+    jp = OUT.parent / "verify_phase_d.json"
+    if not jp.exists():
+        return ""
+    d = json.loads(jp.read_text(encoding="utf-8"))
+    A = d["arms"]; cfg = d["config"]
+    order = ["none", "imposed", "emergent", "neutral_filler"]
+    col = {"none": "#7a8699", "imposed": "#2f6feb", "emergent": "#e5534b", "neutral_filler": "#8a94a6"}
+    W, H = 720, 280; pl, pr, pt, pb = 46, 14, 18, 64
+    pw, ph = W - pl - pr, H - pt - pb; slot = pw / len(order); bw = slot * 0.5
+
+    def y(v): return pt + ph * (1 - v)
+    s = [f'<svg viewBox="0 0 {W} {H}" class="chart">']
+    for g in (0, 0.25, 0.5, 0.75, 1.0):
+        s.append(f'<line x1="{pl}" y1="{y(g):.1f}" x2="{W-pr}" y2="{y(g):.1f}" stroke="#eef1f6"/>')
+        s.append(f'<text x="{pl-6}" y="{y(g)+3:.1f}" text-anchor="end" fill="#9aa6b6" font-size="10">{g:.2f}</text>')
+    for i, arm in enumerate(order):
+        a = A[arm]; cx = pl + slot * i + slot / 2; x = cx - bw / 2
+        s.append(f'<rect x="{x:.1f}" y="{y(a["top_mean"]):.1f}" width="{bw:.1f}" height="{y(0)-y(a["top_mean"]):.1f}" rx="3" fill="{col[arm]}"/>')
+        s.append(f'<text x="{cx:.1f}" y="{y(a["top_mean"])-5:.1f}" text-anchor="middle" fill="#0f1722" font-size="11.5" font-weight="700">{a["top_mean"]:.3f}</text>')
+        s.append(f'<text x="{cx:.1f}" y="{y(0)+15:.1f}" text-anchor="middle" fill="#3a4150" font-size="11.5" font-weight="600">{arm}</text>')
+        s.append(f'<text x="{cx:.1f}" y="{y(0)+30:.1f}" text-anchor="middle" fill="#7a8699" font-size="10">welfare {a["comp_mean"]:.2f}</text>')
+    s.append(f'<text x="{W-pr}" y="14" text-anchor="end" fill="#aab3c0" font-size="10">{cfg["model"]} &#183; N={cfg["seeds"]}</text>')
+    s.append("</svg>")
+    chart = (f'<figure class="fig wide"><figcaption><b>그림 R. arm별 top-share(독점) + welfare</b>'
+             f'<br><span class="sub">낮을수록 공정. <b style="color:#e5534b">emergent(창발)가 가장 높다 = 실패</b>; '
+             f'filler&#183;imposed보다 유의하게 나쁨.</span></figcaption>{"".join(s)}</figure>')
+    rows = ""
+    for c in d["contrasts"]:
+        cls = ' style="background:#eefaf1"' if c["sig"] else ""
+        verdict = "✅ SIG" if c["sig"] else "ns"
+        rows += (f'<tr{cls}><td>{c["label"]}</td><td>{c["p"]:.4f}</td>'
+                 f'<td><b>{c["p_holm"]:.4f}</b></td><td>{verdict}</td></tr>')
+    table = ('<table><thead><tr><th>대조</th><th>p</th><th>p_holm</th><th>판정</th></tr></thead>'
+             f'<tbody>{rows}</tbody></table>')
+    return f"""
+<h2 id="results">★ 결과 (GLM-4.7-flash, N={cfg['seeds']}) — 창발 정체성은 실패했다</h2>
+<div class="callout warn"><b>한 줄 결론.</b> 창발 정체성(emergent)은 독점을 줄이지 못했고(top {A['emergent']['top_mean']:.3f} vs none {A['none']['top_mean']:.3f}, ns),
+<b>부과형(imposed {A['imposed']['top_mean']:.3f})&#183;무내용 배너(filler {A['neutral_filler']['top_mean']:.3f}) 둘 다보다 유의하게 *나빴다*</b>
+(p_holm .013 / .0006). 설계가 경고한 <b>카스트화 역효과</b>("greedy 부류"로 명시 &#8594; 자기범주화로 더 독식)가 데이터로 나타났다.</div>
+{chart}
+{table}
+<p><b>분해:</b> "정체성을 데이터에서 창발시키면 부과 효과를 재현하는가?" &#8594; <b>아니오, 정반대.</b> 부과형은 독점을 *방향상* 줄였으나(0.520&#8594;0.395) flash&#183;N={cfg['seeds']}서 Holm 미유의; 창발형은 *역효과*. neutral_filler가 또 welfare 1등(완전 공정) &#8212; 입력 배너 효과가 기제 설계 때문이 아니라는 V6와 일관된 신호. 상세&#183;한계 = <code>docs/verify_phase_d.md</code>.</p>
+"""
+
+
 CSS = """
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 :root{--ink:#1a2230;--mut:#5b6675;--line:#e3e8ef;--bg:#fbfcfe;--card:#fff;}
@@ -112,8 +160,8 @@ footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:#
 
 
 def main():
-    body = f"""
-<h2 id="what">1. Phase D는 무엇인가</h2>
+    body = results_block() + f"""
+<h2 id="what">1. Phase D는 무엇인가 (설계·구현)</h2>
 <p>V6의 통제 실험에서 <b>유일하게 살아남은 입력측 효과</b>는 <em>부과된</em> "ONE TEAM" 배너(superordinate)였다
 (독점 0.65&#8594;0.41, p_holm&lt;.001). 그런데 그 효과가 <b>"정체성" 때문인가, 아니면 단지 "지시(instruction)"가
 주어졌기 때문인가</b>? — 이것이 논문 &#167;7의 미해결 질문이다.</p>
@@ -181,11 +229,11 @@ def main():
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Phase D — 창발 정체성 구현/설계 리포트</title>
 <style>{CSS}</style></head><body><div class="wrap">
-<h1>Phase D — 정체성을 <em>부과</em>하지 말고 행동에서 <em>창발</em>시키기</h1>
-<p class="lead">창발 정체성(emergent identity) 구현&#183;설계 리포트. V6의 유일 생존 효과(부과된 "ONE TEAM")가
-"정체성"인지 "지시"인지를 분해하기 위한 Phase D.</p>
-<div class="status">&#128230; <b>구현 완료, 실험은 크레딧 대기.</b> 코드&#183;단위테스트(220 통과)&#183;실험 하니스 모두 준비됨.
-실제 GLM 실험은 OpenRouter 크레딧 충전 후 1회 실행. 이 리포트는 *메커니즘&#183;수식&#183;실험 설계*를 다룬다.</div>
+<h1>Phase D — 창발 정체성은 작동하지 않았다 (오히려 역효과)</h1>
+<p class="lead">창발 정체성(emergent identity) <b>실측 결과 + 구현·설계</b> 리포트. V6의 유일 생존 효과(부과된 "ONE TEAM")가
+"정체성"인지 "지시"인지를 분해 — 답: <b>데이터-도출 정체성은 부과형보다 못했고, 카스트화 역효과가 나타났다.</b></p>
+<div class="status">✅ <b>실험 완료(GLM-4.7-flash, N=30) + 구현·단위테스트(220 통과).</b> 아래 ★결과 = 실측(원자료
+<code>verify_phase_d.json</code>, 독립 재계산 0 불일치); 이어지는 §1~ = 설계·메커니즘·수식·실험설계.</div>
 {body}
 <footer>생성: <code>scripts/build_phase_d_report.py</code> &#183; 구현: <code>antigreedy/scenario/reputation_identity.py</code>,
 <code>prompt_shapers.py</code>(emergent_identity), <code>verify_claims.py</code>(phase_d) &#183;

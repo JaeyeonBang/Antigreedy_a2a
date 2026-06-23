@@ -1,4 +1,28 @@
-# Welfare-rescue 스윕 — 결과 (부분, INTERIM)
+# Welfare-rescue 스윕 — 결과 (완전판: GLM-4.7-flash, N=15)
+
+> ✅ **완전판 갱신 (2026-06-23, 크레딧 충전 후 재실행).** 전 영역(catastrophic 포함) + 순열검정·Holm 완비. 원자료 [`verify_welfare_rescue.json`](verify_welfare_rescue.json)(독립 재계산 0 불일치). **실행:** GLM-4.7-flash(reasoning off), temp 0.7, 3ag, rounds=8, N=15. (아래 §는 이전 glm-4.6 *부분* INTERIM — 출처로 보존, 모델·결과 일부 상이.)
+
+## 완전판 결과 표 (GLM-4.7-flash, N=15)
+
+| 영역 (희소도) | pool | none welfare/top | cap_flat welfare/top | cap_quad welfare/top |
+|---|---|---|---|---|
+| **tight** s=1.0 | 360 | **0.73** / 0.585 | 0.73 / 0.360 | 0.67 / 0.375 |
+| **scarce** s=0.5 | 180 | **0.33** / 0.667 | **0.00** / 0.383 | **0.00** / 0.390 |
+| **catastrophic** s=0.33 | 118 | **0.00** / **1.000** | 0.00 / 0.492 | 0.00 / 0.481 |
+
+**Holm 유의(2개):** welfare cap_flat vs none @ scarce (Δ=−0.33, **p_holm=.0006**); welfare cap_quad vs none @ scarce (Δ=−0.33, **p_holm=.0006**). tight·catastrophic welfare 대조는 모두 ns.
+
+## 완전판 핵심 결론
+
+1. **캡은 welfare를 구하지 못한다 — 확정.** scarce에서 캡이 welfare를 *유의하게 해침*(Δ=−0.33, p_holm=.0006, 이제 추론통계). tight에선 캡≈none(무해), catastrophic에선 전원 0(풀이 누구도 완주 못 시킴). 어느 영역에서도 +(rescue)로 뒤집히지 않음.
+2. **그러나 캡은 *모든 영역에서* 공정성을 산다 — catastrophic 포함.** top-share none→cap: tight 0.585→0.36, scarce 0.667→0.38, **catastrophic 1.000(완전 독점)→0.49(반토막)**. *분리(dissociation)* 확정: 캡은 공정성 도구이지 완주-welfare 도구가 아니며, welfare 대가는 *희소(scarce)에서만* 유의.
+3. **모델 차이(중요):** GLM-4.7-flash는 glm-4.6보다 **greed가 약함**(none welfare tight 0.73, scarce에서야 무너짐). 그래서 *tight에서 캡이 welfare를 해친다*던 V6(glm-4.6) 결과는 **모델·greed강도 의존** — flash에선 tight 무해, scarce에서만 해로움. "캡이 welfare를 해친다"의 *조건*이 더 날카로워졌다.
+
+---
+
+## (이하: 이전 glm-4.6 부분 INTERIM — 출처 보존)
+
+# Welfare-rescue 스윕 — 결과 (부분, INTERIM · glm-4.6)
 
 > 플랜 리뷰가 선택한 첫 실험([`design_identity_dao.md`](design_identity_dao.md) §5 Phase A′). **질문:** V6의 "출력 캡이 welfare를 해친다"가 *config 의존*인가 — 공유 풀이 희소해질수록 캡이 welfare를 *구하는가, 더 해치는가*?
 >
