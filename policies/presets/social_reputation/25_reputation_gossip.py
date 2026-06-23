@@ -9,24 +9,11 @@
 줄인다 = 가십에 의한 점진적 비용 부과. 매 턴 gossip 이벤트를 방송한다.
 """
 from antigreedy.governance.policy import Policy
+from antigreedy.governance.reputation_calc import linear_reputation as _reputation
 
 BASE_SHARE = 0.22   # 평판 1.0일 때 잔여 커먼즈에서 허용하는 최대 점유
 FLOOR = 30
 CHARS_PER_TOKEN = 4
-
-
-def _reputation(agent_id, state):
-    """과거 발언 점유에서 파생한 평판 [0.1, 1.0] (1.0 = 공정/협력적)."""
-    log = state.turn_log
-    total = sum(d for _, _, d in log)
-    if total <= 0:
-        return 1.0, 0.0
-    mine = sum(d for a, _, d in log if a == agent_id)
-    n = state.commons.get("n_agents") or max(1, len({a for a, _, _ in log}))
-    fair = 1.0 / n
-    share = mine / total
-    rep = max(0.1, min(1.0, 1.0 - max(0.0, share - fair) / fair))
-    return rep, share
 
 
 class ReputationGossipPolicy(Policy):

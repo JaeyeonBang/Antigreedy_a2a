@@ -17,22 +17,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from antigreedy.governance.types import SharedState
+from antigreedy.governance.reputation_calc import linear_reputation as _reputation
 
 Shaper = Callable[[str, SharedState, str, dict], str]
-
-
-def _reputation(agent_id: str, state: SharedState) -> tuple[float, float]:
-    """과거 점유(turn_log)에서 파생한 평판 [0.1, 1.0] (1.0=공정/협력). 평판 정책과 동일 공식."""
-    log = state.turn_log
-    total = sum(d for _, _, d in log)
-    if total <= 0:
-        return 1.0, 0.0
-    mine = sum(d for a, _, d in log if a == agent_id)
-    n = state.commons.get("n_agents") or max(1, len({a for a, _, _ in log}))
-    fair = 1.0 / n
-    share = mine / total
-    rep = max(0.1, min(1.0, 1.0 - max(0.0, share - fair) / fair))
-    return rep, share
 
 
 def superordinate_identity(agent: str, state: SharedState, base_prompt: str, ctx: dict) -> str:

@@ -10,21 +10,9 @@
 가십·평판 전략(25_reputation_gossip)과 같은 프리셋에서 결합된다.
 """
 from antigreedy.governance.policy import Policy
+from antigreedy.governance.reputation_calc import linear_reputation as _reputation
 
 REP_THRESHOLD = 0.45   # 평판이 이 값 미만이면 배제
-
-
-def _reputation(agent_id, state):
-    log = state.turn_log
-    total = sum(d for _, _, d in log)
-    if total <= 0:
-        return 1.0, 0.0
-    mine = sum(d for a, _, d in log if a == agent_id)
-    n = state.commons.get("n_agents") or max(1, len({a for a, _, _ in log}))
-    fair = 1.0 / n
-    share = mine / total
-    rep = max(0.1, min(1.0, 1.0 - max(0.0, share - fair) / fair))
-    return rep, share
 
 
 class OstracismPolicy(Policy):
