@@ -198,6 +198,15 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
         app.add_api_route(f"/{_fname}", _make_report_route(_fname),
                           methods=["GET"], response_class=HTMLResponse)
 
+    @app.get("/slides", response_class=HTMLResponse)
+    async def slides_page() -> HTMLResponse:
+        """발표자료(HTML 슬라이드 덱). build_slides.py가 생성, 대시보드 이미지 인라인."""
+        fp = _docs_dir / "slides.html"
+        if fp.exists():
+            return HTMLResponse(fp.read_text(encoding="utf-8"))
+        return HTMLResponse("<h1>슬라이드 미생성</h1>"
+                            "<p><code>.venv/bin/python scripts/build_slides.py</code></p>", status_code=404)
+
     @app.get("/config")
     async def config() -> dict:
         return {"real_available": real_backend_factory is not None}
