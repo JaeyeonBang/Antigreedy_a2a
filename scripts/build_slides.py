@@ -229,7 +229,7 @@ def slides():
 <div class="two">
 <div>
 <p class="lead">{cfg['agents']}개 에이전트가 각자 과업을 갖고 <b>하나의 공유 자원(컴퓨트 풀 {cfg['pool']})</b>을 두고 경쟁한다. 탐욕 = 풀을 선점해 남을 굶기는 것.</p>
-<div class="persona"><div class="pl">본 발표의 greedy agent = 아래 페르소나를 받은 실제 LLM</div>
+<div class="persona"><div class="pl">본 발표의 greedy agent = 아래 페르소나(persona = 모델에 부여한 역할·성격 설정)를 받은 실제 LLM</div>
 <code>"{persona}"</code>
 <div class="pt">(경쟁적이며, 남보다 먼저 끝내면 큰 보너스 — 공정함보다 먼저 끝내는 게 더 중요.)</div></div>
 </div>
@@ -325,7 +325,7 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
     # 9 — 왜 통제설계
     S.append(f"""<div class="s">
 <div class="snum">방법론 · 왜 통제 설계인가</div>
-<h2>기준점 표류·길이 효과·다중검정 — 셋이 가짜 양성을 만든다</h2>
+<h2>기준점 표류(baseline drift)·길이 효과·다중검정 — 셋이 가짜 양성을 만든다</h2>
 <p class="lead">개입마다 *제각각* 뽑은 기준점에 견주거나, 대조군 없이 한 번 보면, 길이 효과나 운이 '효과'로 둔갑한다. 통제 설계가 이를 막는다:</p>
 <div class="three">
 <div class="mini"><b>① 공통 기준점</b><br>각 레짐 안에서 11개 조건 전부를 공통 baseline·N={cfg['seeds']}·동일 모델로 동시 측정</div>
@@ -338,43 +338,54 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 "규제를 켠 쪽과 끈 쪽의 차이가 *운으로 설명되지 않는가*"를 위 세 도구로 깐깐하게 따진다. 모델 = <b>{model}</b>(온도 {cfg['temp']}·매번 조금씩 다른 답).</div>
 </div>""")
 
-    # 10 — 조건: 입력측 먼저 (+ 대조군)
+    # 10 — 조건: 입력측 (말로 타이르기) — 4종 상세
     S.append(f"""<div class="s">
-<div class="snum">조건 (1/2) · 입력측 — 설득 + 대조군</div>
-<h2>입력측 2종 + 대조군 2종 — "말로 타이르기"</h2>
-<table><thead><tr><th>조건</th><th>계층</th><th>구현</th></tr></thead><tbody>
-<tr><td><code>reputation_feedback</code></td><td><span class="tag in">입력</span></td><td>프롬프트에 <code>rep·share%·fair%</code> + "동료가 보고 기억함" 주입. <b>출력 캡 0</b></td></tr>
-<tr><td><code>superordinate</code></td><td><span class="tag in">입력</span></td><td>"ONE TEAM — 전원 완료 시 1점, 한 명이라도 굶으면 0점" 배너</td></tr>
-<tr><td><code>fairshare_anchor</code> <span class="badge">대조</span></td><td>대조</td><td>rep_feedback서 평판·또래·규범 어휘 <b>전부 제거</b>, <code>share%·fair%</code> *숫자만*</td></tr>
-<tr><td><code>neutral_filler</code> <span class="badge">대조</span></td><td>대조</td><td>자원·공정성 무관한 동일 길이 무내용 배너 (순수 *길이* 대조)</td></tr>
+<div class="snum">실험 조건 (1/3) · 입력측(input-side) — "말로 타이르기"</div>
+<h2>입력측 4종 — 요청을 <span class="hl">깎지 않고</span> 프롬프트만 바꿔 설득</h2>
+<p class="sub" style="font-size:14px;color:#5d5a52;margin:0 0 6px">입력측 = 에이전트가 행동하기 *전에* 프롬프트(지시문)에 문장을 더해 스스로 양보하게 만드는 방식. 출력은 전혀 안 깎음(설득만).</p>
+<table><thead><tr><th>조건</th><th>쉬운 설명 (무엇을·왜)</th><th>정확한 구현</th></tr></thead><tbody>
+<tr><td><code>reputation_feedback</code><br><span class="tag in">설득</span></td><td>매 턴 프롬프트에 "네 <b>평판 점수</b>·네가 쓴 몫·공정한 몫"을 보여주고 <b>"동료들이 지켜보고 기억한다"</b>고 일러 *양심·체면에 호소*.</td><td><code>rep·share%·fair%</code> 수치 + 또래 관찰 문구 주입 · 출력 캡 0</td></tr>
+<tr><td><code>superordinate</code><br><span class="tag in">설득</span></td><td>"<b>우리는 한 팀(ONE TEAM)</b> — 전원이 끝내야 1점, 한 명이라도 굶으면 0점"이라는 *공동 목표*를 심어 협력 유도.</td><td>"ONE TEAM" 배너 + 전원완료=1·일부굶음=0 채점 규칙 문구</td></tr>
+<tr><td><code>fairshare_anchor</code> <span class="badge">대조군</span></td><td>위 평판 피드백에서 <b>사회적 표현(평판·또래·규범)은 전부 빼고 숫자만</b> 남김. 효과가 "공정성 메시지" 때문인지 "그냥 숫자를 보여줘서"인지 가르는 대조.</td><td><code>share%·fair%</code> 숫자만 (사회 어휘 제거)</td></tr>
+<tr><td><code>neutral_filler</code> <span class="badge">대조군</span></td><td>자원·공정성과 <b>전혀 무관한 무의미한 글</b>을 *같은 길이로* 끼움 = <b>가짜약(placebo)</b>. 효과가 내용 때문인지 "그냥 프롬프트가 길어져서"인지 가름.</td><td>동일 길이·무내용 배너</td></tr>
 </tbody></table>
-{decomp_svg(TV('neutral_filler'), TV('fairshare_anchor'), TV('reputation_feedback'), TV('none'))}
-<div class="foot">참고: <b>superordinate</b>=상위목표 정체성 Sherif 1961(Robbers Cave)·Gaertner &amp; Dovidio 2000(공동내집단) ·
-<b>reputation_feedback</b>=간접상호성 Nowak &amp; Sigmund 2005(Nature 437)·Milinski 2002 · 구현 <code>prompt_shapers.py</code></div>
+<div class="easy"><span class="lab">💡</span> 대조군 둘이 핵심이다: 진짜 개입(<code>reputation_feedback</code>)이 효과를 보여도, <b>숫자만 보여준 것(anchor)</b>·<b>아무 글이나 끼운 것(filler)</b>과 차이가 없으면 그 효과는 *사회적 기제가 아니라 숫자·길이 착시*다.</div>
+<div class="foot">참고: <b>superordinate</b>=상위목표 정체성 Sherif 1961(Robbers Cave)·Gaertner &amp; Dovidio 2000 · <b>reputation_feedback</b>=간접상호성(indirect reciprocity) Nowak &amp; Sigmund 2005·Milinski 2002 · 구현 <code>prompt_shapers.py</code></div>
 </div>""")
 
-    # 11 — 조건: 출력측 (정확한 식)
-    rep_formula = """<div class="formula">평판 (출력측 평판 조건이 공유 · 중앙집권·재계산):
-  share = mine/total      fair = 1/n
-  linear  rep = clip( 1 − max(0,share−fair)/fair , 0.1, 1.0 )
-  beta+λ  r=Σλ^Δ·[share≤fair]  s=Σλ^Δ·[share>fair]   E[rep]=(r+1)/(r+s+2)
-  elder   rep = α·rule_rep + (1−α)·mean(LLM judge 점수)</div>"""
+    # 11 — 조건: 출력측 (2/3) 평판 기반 규제 3종
+    rep_formula = """<div class="formula">평판(reputation) = 0~1 점수 · turn_log에서 매번 재계산 · 공정몫보다 많이 쓰면 ↓
+  share = 내가 쓴 몫 / 전체      fair = 1/n (= 공정한 몫)
+  linear(누적)  rep = clip( 1 − max(0, share−fair)/fair , 0.1, 1.0 )
+  beta+λ(망각)  과거를 λ^Δ로 감쇠해 재계산 → 한 번 낮아져도 회복 가능</div>"""
     S.append(f"""<div class="s">
-<div class="snum">조건 (2/2) · 출력측 — 요청을 깎기/거부</div>
-<h2>출력측 5종 — 단순 캡부터 진짜 QV까지</h2>
+<div class="snum">실험 조건 (2/3) · 출력측(output-side) — 평판 기반 규제</div>
+<h2>출력측 = 나온 요청을 <span class="hl">가로채 깎거나(cap) 막음(deny)</span> — 평판 3종</h2>
 {rep_formula}
-<table><thead><tr><th>조건</th><th>기제 (근거)</th><th>구현 (정확한 식)</th></tr></thead><tbody>
-<tr><td><code>dumb_cap</code></td><td>"이름만 사회"인 단순 비례 캡</td><td><code>cap=max(30, ⌊remaining·0.22⌋)</code> · <b>평판 안 봄</b></td></tr>
-<tr><td><code>social</code></td><td>간접상호성·가십(Milinski 2002) + 배제(Fehr&amp;Gächter 2000)</td><td>가십캡 <code>cap=max(30,⌊remaining·0.22·rep⌋)</code> + rep&lt;0.6 부정 어조 방송 + <b>rep&lt;0.45 → DENY(배제)</b></td></tr>
-<tr><td><code>ost_beta</code></td><td>평판 *망각*(Beta+λ, Jøsang 2002) — 카스트화 회복</td><td>위 배제+캡을 λ=0.7 Beta 평판으로 구동(과거 가중 λ^Δ로 감쇠)</td></tr>
-<tr><td><code>ledger_elder</code></td><td>LLM *판관* 원장 — 근거를 읽고 채점</td><td>Elder가 에피소드당 1회 REASON 채점(0~10) → <code>α=0.5</code>로 rule과 혼합</td></tr>
-<tr><td><code>qv_flat</code> / <code>qv_rep</code></td><td>진짜 이차투표(Weyl) — 고정 예산 + 2차 비용</td><td><code>cost=d²/rep</code>, 상한 <code>√((B−spent)·rep)</code>, B={int(cfg['budget_B'])} · flat=무가중, rep=평판가중</td></tr>
+<table><thead><tr><th>조건</th><th>쉬운 설명 (무엇을·왜)</th><th>정확한 구현</th></tr></thead><tbody>
+<tr><td><code>dumb_cap</code><br><span class="tag out">캡</span></td><td>평판이고 뭐고 <b>안 보고</b>, 무조건 "한 번에 남은 풀의 22%까지만" 잘라냄. <b>가장 단순한 규제 = 비교 기준선.</b></td><td><code>cap=max(30, ⌊남은풀·0.22⌋)</code></td></tr>
+<tr><td><code>social</code><br><span class="tag out">평판+배제</span></td><td>사람 사회의 <b>평판·따돌림</b> 모방: 평판 낮을수록 더 깎고(가십캡), 낮은 애를 <b>소문내 망신</b>주며, 0.45 미만이면 <b>아예 차단(배제·ostracism)</b>.</td><td>가십캡 <code>max(30,⌊남은풀·0.22·평판⌋)</code> + 평판&lt;0.6 부정 소문 + 평판&lt;0.45→DENY</td></tr>
+<tr><td><code>ost_beta</code><br><span class="tag out">망각</span></td><td><code>social</code>과 같되 평판을 <b>"과거를 조금씩 잊는"</b> 방식(Beta+λ)으로 계산 → 한 번 찍혀도 회복 가능(<b>영구 낙인 방지</b>).</td><td>위 배제+캡을 <b>λ=0.7</b> 망각 평판으로 구동</td></tr>
 </tbody></table>
-<div class="easy"><span class="lab">💡</span> <b>가십캡(gossip cap)</b>: 남은 풀의 22%를 평판으로 더 깎고(평판 낮을수록 캡↓), 평판 낮은 에이전트를 *방송(소문)* 해 망신주며, 0.45 미만이면 아예 거부(배제=ostracism). ·
-<b>평판 망각(Beta+λ)</b>: 과거 행동을 *조금씩 잊어*(λ=망각 속도) 한 번 찍혀도 회복할 길을 줌. ·
-<b>진짜 이차투표(Quadratic Voting, QV)</b>: 한곳에 몰아 요청하면 비용이 *제곱(²)* 으로 폭증 → 고정 예산이 자연히 분산을 강제(경제학의 이차투표를 자원 배분에 차용).</div>
-<div class="foot">참고문헌(식 출처): 가십·간접상호성 Milinski 2002(Nature 415:424) · 배제·이타적처벌 Fehr &amp; Gächter 2002(Nature 415:137) ·
-Beta 평판 Jøsang &amp; Ismail 2002 · LLM-판관 Zheng 2023(arXiv:2306.05685) · 이차투표(QV) Weyl 2017·Lalley &amp; Weyl 2018·FedQV(arXiv:2401.01168) · 구현 <code>governance/{{nullcap,reputation_calc,beta_ostracism,elder,qv}}.py</code></div>
+<div class="easy"><span class="lab">💡</span> 세 조건 모두 평판이 낮은(=많이 쓴) 에이전트의 요청을 <b>그 자리에서 깎는다</b>. 차이는 평판을 어떻게 계산하느냐 — 안 봄(dumb) / 누적(social) / 망각(ost_beta).</div>
+<div class="foot">참고: 가십·간접상호성 Milinski 2002(Nature 415:424) · 배제·이타적처벌 Fehr &amp; Gächter 2002(Nature 415:137) · Beta 평판 Jøsang &amp; Ismail 2002 · 구현 <code>governance/{{nullcap,reputation_calc,beta_ostracism}}.py</code></div>
+</div>""")
+
+    # 11b — 조건: 출력측 (3/3) LLM 판관 & 진짜 이차투표
+    qv_formula = f"""<div class="formula">elder(LLM 판관)  rep = α·규칙평판 + (1−α)·LLM_심판_점수      (α=0.5)
+진짜 이차투표(QV)  요청 d의 비용 = d² / 평판      (몰아쓰면 제곱으로 폭증)
+  한 턴 상한 = √((예산 B − 지금까지 쓴 비용) · 평판)      B={int(cfg['budget_B'])} (고정)</div>"""
+    S.append(f"""<div class="s">
+<div class="snum">실험 조건 (3/3) · 출력측 — LLM 판관 & 진짜 이차투표</div>
+<h2>출력측 — <span class="hl">정교한 2종</span>: 사람 대신 LLM이 심판 / 경제학의 이차투표</h2>
+{qv_formula}
+<table><thead><tr><th>조건</th><th>쉬운 설명 (무엇을·왜)</th><th>정확한 구현</th></tr></thead><tbody>
+<tr><td><code>ledger_elder</code><br><span class="tag out">LLM 판관</span></td><td>매 에피소드마다 <b>별도의 LLM '심판(Elder)'</b>이 각 에이전트의 <b>해명(왜 이만큼 썼는지, REASON)</b>을 읽고 공정성을 0~10점 채점 → 규칙 점수와 <b>반반 섞어</b> 규제.</td><td>Elder가 REASON 1회/에피소드 채점 → <code>rep=0.5·규칙+0.5·LLM점수</code></td></tr>
+<tr><td><code>qv_flat</code><br><span class="tag out">QV·무가중</span></td><td><b>고정 예산</b> 안에서 한곳에 몰아 쓸수록 비용이 <b>제곱(²)으로 폭증</b> → 자연히 나눠 쓰게 만듦. 평판은 안 봄.</td><td><code>비용=요청²</code>, 상한 <code>√(예산−사용)</code></td></tr>
+<tr><td><code>qv_rep</code><br><span class="tag out">QV·평판가중</span></td><td><code>qv_flat</code>과 같되 <b>평판으로 가중</b> — 평판 낮은(=과거에 많이 쓴) 에이전트는 같은 요청이라도 <b>더 비싸짐</b>.</td><td><code>비용=요청²/평판</code>, 상한 <code>√((예산−사용)·평판)</code></td></tr>
+</tbody></table>
+<div class="easy"><span class="lab">💡</span> <b>왜 '진짜' QV인가</b>: 예전엔 예산 없이 비용만 매겨 진짜 이차투표가 아니었다. 여기선 <b>고정 예산(B)</b>에 누적 비용을 묶어, 몰아쓰면 예산이 제곱으로 빨리 바닥나 *분산이 강제*된다(경제학 Quadratic Voting을 자원 배분에 차용).</div>
+<div class="foot">참고: LLM-판관 Zheng 2023(arXiv:2306.05685) · 이차투표(Quadratic Voting) Weyl 2017·Lalley &amp; Weyl 2018·FedQV(arXiv:2401.01168) · 구현 <code>governance/{{elder,qv}}.py</code></div>
 </div>""")
 
     # 12 — 결과1: 독점 스펙트럼
