@@ -201,7 +201,12 @@ def slides():
                 if A[arm]["top_mean"] < A["neutral_filler"]["top_mean"]:
                     out.add(arm)
         return out
-    hoard_win = _fwin("hoard")  # 사재기에서 길이(filler)를 이긴 개입 = proactive 캡 4종
+    hoard_win = _fwin("hoard")      # 사재기에서 길이(filler)를 이긴 개입 = proactive 캡 4종
+    finish_win = _fwin("finish_first")  # 빨리끝내기에서 filler 이긴 개입
+    aorder = da["order"]; ameta = da["meta"]
+    TFv = lambda a: F[a]["top_mean"]; WFv = lambda a: F[a]["comp_mean"]
+    sig_h = {a: (a in hoard_win, 0.0) for a in aorder}   # hspectrum용 ▸(filler 이김) 마커
+    sig_f = {a: (a in finish_win, 0.0) for a in aorder}
 
     S = []
     persona = ("You are competitive and you get a large BONUS if you finish your subtask "
@@ -255,11 +260,14 @@ def slides():
 <h2>길이 채움(filler)을 <span class="hl">유의하게 이긴</span> 개입 수 — 레짐별 / 10</h2>
 <div class="cards3">
 <div class="card"><div class="cn">0</div><div class="cl"><b>풍요 · 간접</b><br>독점이 안 생김 →<br>거버넌스 불필요</div></div>
-<div class="card"><div class="cn">{len(_fwin('finish_first'))}</div><div class="cl"><b>희소 · 간접</b><br>약한 독점 →<br>캡·판관이 일부 작동</div></div>
+<div class="card"><div class="cn">{len(_fwin('finish_first'))}</div><div class="cl"><b>희소 · 간접</b><br>약한 독점 →<br>단순 캡만 일부 작동</div></div>
 <div class="card gold"><div class="cn">{len(hoard_win)}</div><div class="cl"><b>희소 · 직접(사재기)</b><br>완전 독점 →<br><b>proactive 캡만</b> 통함</div></div>
 </div>
 <p class="lead center">거버넌스 효과는 <b>조건의존</b>이다. 자원이 넉넉하면 독점이 없어 거버넌스가 불필요하고(겉보기 효과=길이 아티팩트),
 <b>희소+사재기 공격</b>에서야 진짜 독점이 생기며 선제적 캡만 그것을 막고 길이 대조군을 이긴다. 단 그 효과조차 <b>후생 트레이드오프</b>를 동반한다.</p>
+<div class="easy center"><span class="lab">💡 용어</span> <b>선제적 캡(proactive)</b> = 요청이 나오는 *즉시* 그 자리에서 잘라내는 규칙(예: "한 번에 풀의 22%까지만"). 사후에 평판이 쌓여야 작동하는 규칙과 반대. ·
+<b>길이 대조군(neutral_filler)</b> = 공정성과 *무관한 무의미한 텍스트*를 같은 길이로 끼운 <b>가짜약(placebo)</b> — 진짜 효과인지 '그냥 글자 수가 늘어난 효과'인지 가르는 기준. ·
+<b>후생 트레이드오프</b> = 독점을 줄이려 잘랐더니 *아무도 제 분량을 못 끝내는* 부작용.</div>
 </div>""")
 
     # 5 — 두 레버 (입력 먼저)
@@ -270,15 +278,21 @@ def slides():
 <div class="foot">입력측 = <code>prompt_shapers.py</code> (행동 *전* 프롬프트 재구성) · 출력측 = <code>nullcap.py</code> + 평판·배제 프리셋 (나온 행동을 깎음) · 둘 다 상태를 *바꾸지 않고 읽기만*</div>
 </div>""")
 
-    # 6 — 단일 관문 + 상태
+    # 6 — 단일 관문 + 상태 (+ 용어 정의)
     S.append(f"""<div class="s">
-<div class="snum">방법론 · 집행 구조</div>
-<h2>단일 관문 InterceptPoint + 단일 상태 SharedState</h2>
+<div class="snum">방법론 · 집행 구조 + 용어</div>
+<h2>모든 요청은 단일 관문(InterceptPoint)을 통과한다 — 판정 4종</h2>
 {intercept_svg()}
 <div class="three">
-<div class="mini"><b>PolicyChain</b><br>우선순위로 정렬, DENY/DELAY서 멈춤(short-circuit), MODIFY는 다음 정책으로 넘김</div>
-<div class="mini"><b>SharedState (단일 기록자)</b><br>commons·turn_log·reputation. *오케스트레이터만* 변경, 정책은 read-only</div>
-<div class="mini"><b>평판은 저장 안 함</b><br>turn_log(누가 얼마 받았나)에서 *매번 재계산*(recompute-on-read) — 중앙집권·객관</div>
+<div class="mini"><b>판정(verdict) 4종 — 요청을 어떻게 처리하나</b><br>
+<b>ALLOW</b> = 요청 그대로 통과(전부 전달) · <b>DENY</b> = 전면 차단(0 전달) ·
+<b>MODIFY</b> = 깎아서 일부만 전달(cap) · <b>DELAY</b> = 이번 턴 보류(다음 턴으로 미룸)</div>
+<div class="mini"><b>상태 용어 — 무엇을 보고 판정하나</b><br>
+<b>commons</b> = 모두가 나눠 쓰는 <b>공유 자원 풀</b>(남은 토큰 예산) ·
+<b>turn_log</b> = 매 턴 "누가 얼마 요청·전달받았나"를 적는 <b>기록 장부</b></div>
+<div class="mini"><b>reputation(평판) = 공정성 점수</b><br>
+turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-on-read). 공정 몫보다 많이 쓰면 ↓.
+<b>중앙집권·객관</b> — 또래의 소문이 아니라 *기록*에서 나옴</div>
 </div>
 </div>""")
 
@@ -314,7 +328,7 @@ def slides():
 <h2>기준점 표류·길이 효과·다중검정 — 셋이 가짜 양성을 만든다</h2>
 <p class="lead">개입마다 *제각각* 뽑은 기준점에 견주거나, 대조군 없이 한 번 보면, 길이 효과나 운이 '효과'로 둔갑한다. 통제 설계가 이를 막는다:</p>
 <div class="three">
-<div class="mini"><b>① 공통 기준점</b><br>11개 조건 전부 — 하나의 실험·N={cfg['seeds']}·동일 모델에서 동시 측정</div>
+<div class="mini"><b>① 공통 기준점</b><br>각 레짐 안에서 11개 조건 전부를 공통 baseline·N={cfg['seeds']}·동일 모델로 동시 측정</div>
 <div class="mini"><b>② 앵커·길이 대조군</b><br><code>fairshare_anchor</code>(숫자만)·<code>neutral_filler</code>(길이만)로 입력 효과를 성분 분해</div>
 <div class="mini"><b>③ 원자료 통계</b><br>bootstrap CI · 순열검정(정규근사 X) · Holm 다중보정(가족별)</div>
 </div>
@@ -332,6 +346,8 @@ def slides():
 <tr><td><code>neutral_filler</code> <span class="badge">대조</span></td><td>대조</td><td>자원·공정성 무관한 동일 길이 무내용 배너 (순수 *길이* 대조)</td></tr>
 </tbody></table>
 {decomp_svg(TV('neutral_filler'), TV('fairshare_anchor'), TV('reputation_feedback'), TV('none'))}
+<div class="foot">참고: <b>superordinate</b>=상위목표 정체성 Sherif 1961(Robbers Cave)·Gaertner &amp; Dovidio 2000(공동내집단) ·
+<b>reputation_feedback</b>=간접상호성 Nowak &amp; Sigmund 2005(Nature 437)·Milinski 2002 · 구현 <code>prompt_shapers.py</code></div>
 </div>""")
 
     # 11 — 조건: 출력측 (정확한 식)
@@ -352,6 +368,8 @@ def slides():
 <tr><td><code>qv_flat</code> / <code>qv_rep</code></td><td>진짜 이차투표(Weyl) — 고정 예산 + 2차 비용</td><td><code>cost=d²/rep</code>, 상한 <code>√((B−spent)·rep)</code>, B={int(cfg['budget_B'])} · flat=무가중, rep=평판가중</td></tr>
 </tbody></table>
 <div class="easy"><span class="lab">💡</span> <b>가십캡</b>: 남은 풀의 22%를 평판으로 더 깎고(rep 낮을수록 캡↓), 평판 낮은 에이전트를 *방송*해 망신주며, 0.45 미만이면 아예 거부(배제). <b>진짜 QV</b>: 한곳에 몰아 요청하면 비용이 제곱으로 폭증 → 고정 예산이 분산을 강제.</div>
+<div class="foot">참고문헌(식 출처): 가십·간접상호성 Milinski 2002(Nature 415:424) · 배제·이타적처벌 Fehr &amp; Gächter 2002(Nature 415:137) ·
+Beta 평판 Jøsang &amp; Ismail 2002 · LLM-판관 Zheng 2023(arXiv:2306.05685) · 이차투표(QV) Weyl 2017·Lalley &amp; Weyl 2018·FedQV(arXiv:2401.01168) · 구현 <code>governance/{{nullcap,reputation_calc,beta_ostracism,elder,qv}}.py</code></div>
 </div>""")
 
     # 12 — 결과1: 독점 스펙트럼
@@ -408,40 +426,34 @@ def slides():
 거버넌스가 막을 독점이 *있어야* 효과를 잴 수 있다 — 이제 진짜 시험대가 열린다.</p>
 </div>""")
 
-    # 16 — ② 희소+직접: proactive vs reactive
-    AM = [("dumb_cap", "proactive 캡"), ("social", "proactive 캡"), ("qv_flat", "proactive 캡"),
-          ("qv_rep", "proactive 캡"), ("ost_beta", "reactive 평판"), ("ledger_elder", "reactive 판관"),
-          ("reputation_feedback", "입력 프레이밍"), ("superordinate", "입력 프레이밍"),
-          ("neutral_filler", "대조(길이)")]
-    amrows = ""
-    for nm, clsl in AM:
-        if nm == "neutral_filler":
-            mark = '<span class="badge">기준</span>'
-        elif nm in hoard_win:
-            mark = '<span class="sig">▸ 이김</span>'
-        else:
-            mark = '<span class="badge">✗ 무력</span>'
-        amrows += (f'<tr><td><code>{nm}</code></td><td>{clsl}</td>'
-                   f'<td class="num">{THv(nm):.3f}</td><td>{mark}</td><td class="num">{WHv(nm):.2f}</td></tr>')
+    # 16 — ② 희소·간접(빨리끝내기) 독점 그래프
+    fwin_names = " · ".join(finish_win) if finish_win else "없음"
     S.append(f"""<div class="s">
-<div class="snum">결과 · ② 희소+직접(사재기) — 완전 독점 top {THv('none'):.2f}</div>
-<h2>완전 독점 앞에서 — <span class="hl">선제 캡(proactive)만 길이를 이긴다</span></h2>
-<table><thead><tr><th>메커니즘</th><th>계열</th><th>top ↓</th><th>filler 이김?</th><th>welfare</th></tr></thead><tbody>{amrows}</tbody></table>
-<div class="easy"><span class="lab">💡</span> 사재기꾼은 <b>첫 턴에 풀을 다 비운다</b>. <code>dumb_cap·social·QV</code>는 *나오는 즉시* 첫 그랩을 잘라(0.22·잔량/2차비용) 물리적으로 막지만,
-<code>ost_beta·ledger_elder</code>는 *나쁜 짓을 한 뒤* 평판/점수가 쌓여야 작동 → 첫수에 다 가져가면 손쓸 새가 없다(top 1.0). 입력 프레이밍도 무력.</div>
+<div class="snum">결과 · ② 희소·간접(빨리끝내기) · 독점 — 막대 낮을수록 공정</div>
+<h2>희소·간접: 약한 독점(무규제 {TFv('none'):.2f}) — <span class="hl">단순 캡만 길이를 이긴다</span></h2>
+{hspectrum(F, aorder, ameta, 'top_mean', 'top_boot', lower_better=True, sigmap=sig_f)}
+<div class="easy"><span class="lab">💡</span> 빨리끝내기는 여러 턴에 걸쳐 그랩하지만 — 길이 대조군(filler)을 이긴 건 여전히 <b>선제 캡 {len(finish_win)}종</b>({fwin_names})뿐(▸).
+평판(ost_beta)·QV는 무효(ns), <b>LLM 판관(ledger_elder)은 오히려 독점↑(역효과)</b>. 점선=무규제({TFv('none'):.2f}) · 초록=무규제보다 독점↓.</div>
 </div>""")
 
-    # 17 — ② 후생 트레이드오프
+    # 17 — ② 희소·직접(사재기) 독점 그래프 (핵심)
+    hwin_names = " · ".join(hoard_win) if hoard_win else "없음"
     S.append(f"""<div class="s">
-<div class="snum">결과 · ② 희소+직접 · 후생 트레이드오프</div>
+<div class="snum">결과 · ② 희소·직접(사재기) · 독점 — 막대 낮을수록 공정</div>
+<h2>희소·직접: 완전 독점(무규제 {THv('none'):.2f}) — <span class="hl">선제 캡(proactive)만 길이를 이긴다</span></h2>
+{hspectrum(H, aorder, ameta, 'top_mean', 'top_boot', lower_better=True, sigmap=sig_h)}
+<div class="easy"><span class="lab">💡 proactive vs reactive</span> 사재기꾼은 첫 턴에 풀을 다 비운다 → *나오는 즉시* 깎는 <b>선제 캡(proactive)</b>
+{hwin_names} <b>{len(hoard_win)}종만</b> 막는다(▸). 평판(ost_beta)·LLM 판관(ledger_elder)은 *나쁜 짓 뒤 이력이 쌓여야* 작동하는 <b>사후(reactive)</b>라
+첫수에 손쓸 새가 없어 top=1.0 무력 — 입력 프레이밍도 마찬가지.</div>
+</div>""")
+
+    # 18 — ② 희소·직접 후생 그래프 (11개 전부)
+    S.append(f"""<div class="s">
+<div class="snum">결과 · ② 희소·직접(사재기) · 후생(welfare) — 11개 전부 · 막대 높을수록 좋음</div>
 <h2>독점을 줄이면 후생을 잃는다 — <span class="hl">QV만 균형을 항해</span></h2>
-<table><thead><tr><th>개입</th><th>독점 top ↓</th><th>후생 welfare ↑</th><th>판정</th></tr></thead><tbody>
-<tr><td><code>none</code></td><td class="num">{THv('none'):.2f}</td><td class="num">{WHv('none'):.2f}</td><td>사재기꾼만 완료</td></tr>
-<tr><td><code>dumb_cap</code></td><td class="num green">{THv('dumb_cap'):.2f}</td><td class="num red">{WHv('dumb_cap'):.2f}</td><td class="red">공정하나 <b>전원 실패</b></td></tr>
-<tr><td><code>social</code></td><td class="num green">{THv('social'):.2f}</td><td class="num red">{WHv('social'):.2f}</td><td class="red">전원 실패</td></tr>
-<tr><td><code>qv_rep</code></td><td class="num green">{THv('qv_rep'):.2f}</td><td class="num green">{WHv('qv_rep'):.2f}</td><td class="green">독점↓ + 후생 보존</td></tr>
-</tbody></table>
-<div class="easy"><span class="lab">💡</span> 희소는 거의 <b>제로섬</b> — 재분배는 되지만 후생을 *만들어내진* 못한다. 단순 캡은 모두를 똑같이 잘라 아무도 못 끝내고(welfare 0.00), QV만 한 명이라도 끝내게 두며 극단만 깎는다(독점 {THv('qv_rep'):.2f}, 후생 {WHv('qv_rep'):.2f} 보존).</div>
+{hspectrum(H, aorder, ameta, 'comp_mean', 'comp_boot', lower_better=False, sigmap=dict())}
+<div class="easy"><span class="lab">💡</span> 독점을 가장 많이 줄인 <code>dumb_cap·social</code>은 welfare <b>0.00</b>(모두 똑같이 잘라 아무도 제 분량 못 끝냄·빨강).
+<code>qv_flat·qv_rep</code>만 독점↓ + 무규제 수준 welfare({WHv('qv_rep'):.2f}) 보존(초록). 점선=무규제({WHv('none'):.2f}) · 희소는 제로섬이라 재분배는 돼도 후생을 *만들어내진* 못한다.</div>
 </div>""")
 
     # 18 — 조건의존 결론
