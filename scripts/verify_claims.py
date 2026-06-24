@@ -749,20 +749,29 @@ async def run_attack(backend, seeds, agents, workload, rounds, model, temp):
           f"pool={pool}=s{ s}×수요{n*workload}, rounds={rounds}) ===")
     personas = [("hoard", HOARD_PERSONA, "사재기(직접 공격)"),
                 ("finish_first", GREEDY_PERSONA, "빨리끝내기(간접 창발)")]
+    beta = lambda l: functools.partial(beta_reputation, lam=l)
+    # 통합 실험과 *동일한 11 메커니즘* — 희소 위에서 재측정해 하나의 흐름으로 합치기 위함
     arm_specs = [
-        ("none",           _intercept_none,                 []),
-        ("neutral_filler", _intercept_none,                 ["neutral_filler"]),
-        ("dumb_cap",       _intercept_dumbcap,              []),
-        ("social",         _intercept_social,               []),
-        ("qv_rep",         _intercept_qv(True, 20000.0),    []),
+        ("none",                "—",   "무규제(기준선)",          _intercept_none,                        [],                          linear_reputation),
+        ("dumb_cap",            "출력", "단순 비율 캡",            _intercept_dumbcap,                     [],                          linear_reputation),
+        ("social",              "출력", "사회·평판(가십+배제)",     _intercept_social,                      [],                          linear_reputation),
+        ("ost_beta",            "출력", "평판 망각(Beta λ=0.7)",   _intercept_beta(0.7),                   [],                          beta(0.7)),
+        ("ledger_elder",        "출력", "LLM 판관(Elder α=0.5)",   _intercept_elder(0.5, backend=backend), [],                          linear_reputation),
+        ("qv_flat",             "출력", "진짜 QV·무가중",          _intercept_qv(False, 20000.0),          [],                          linear_reputation),
+        ("qv_rep",              "출력", "진짜 QV·평판가중",        _intercept_qv(True, 20000.0),           [],                          linear_reputation),
+        ("reputation_feedback", "입력", "평판 피드백 프레이밍",      _intercept_none,                        ["reputation_feedback"],     linear_reputation),
+        ("superordinate",       "입력", "상위목표 정체성",          _intercept_none,                        ["superordinate_identity"],  linear_reputation),
+        ("fairshare_anchor",    "입력", "공정몫 숫자 앵커(대조)",   _intercept_none,                        ["fairshare_anchor"],        linear_reputation),
+        ("neutral_filler",      "입력", "중립 길이(결정적 대조)",   _intercept_none,                        ["neutral_filler"],          linear_reputation),
     ]
+    meta = {name: {"lever": lever, "mechanism": mech} for name, lever, mech, *_ in arm_specs}
     regimes = {}
     for pkey, ptext, plabel in personas:
         print(f"\n-- 페르소나: {plabel} --")
         arms = {}
-        for name, ib, sh in arm_specs:
+        for name, lever, mech, ib, sh, rf in arm_specs:
             a = await _seeded(f"{name}@{pkey}", ib, sh, agents, pool, workload, rounds, backend,
-                              seeds, persona=ptext)
+                              seeds, rep_fn=rf, persona=ptext)
             a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
             arms[name] = a
             print(f"  {name:<16} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
@@ -797,6 +806,7 @@ async def run_attack(backend, seeds, agents, workload, rounds, model, temp):
             "config": {"model": model, "temp": temp, "agents": n, "workload": workload,
                        "pool": pool, "scarcity": s, "rounds": rounds, "seeds": seeds},
             "order": [k for k, *_ in arm_specs],
+            "meta": meta,
             "regimes": regimes,
             "cross_none_top_hoard_vs_finish_p": cross_top}
 
