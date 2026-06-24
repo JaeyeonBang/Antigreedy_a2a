@@ -655,12 +655,83 @@ async def run_unified(backend, seeds, agents, pool, workload, rounds, model, tem
             "contrasts_heads": fam(head_adj)}
 
 
+async def run_litmus(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """경향성 시금석(litmus). 통합 실험에서 *독점 감소 경향*을 보인 조건들을 다시 묻는다:
+    (1) **에이전트 수를 늘리면**(여기 n은 CLI로) 경향이 *강해지는가*(진짜 기제: 공정몫 1/n↓로
+    독식 여지↑·QV 예산경쟁↑) vs *납작한가*(길이 아티팩트는 n과 무관) — n=4 통합과 대조.
+    (2) 진짜 QV의 예산을 **실제로 물게**(B_bind: √B<workload) 고친 버전과 안 무는 대조(B_loose)를
+    함께 넣어, 통합에서 qv≈filler였던 게 *예산이 안 걸려서*였는지 가른다.
+    (3) **결정적 검정 = 각 개입 vs neutral_filler**(순수 길이 대조군). 음성/방법론 프레이밍 유지:
+    기제가 filler를 못 이기면 음성 결론이 더 단단해지고, 이기면 양성 하위결과(양쪽 다 출판 가능)."""
+    B_BIND, B_LOOSE = 8000.0, 20000.0  # √8000≈89<workload120 → 한 방 그랩 불가(예산 물림); 20000=비-binding 대조
+    print(f"\n=== 시금석: 경향 조건 × n-scaling × QV 예산물림 ({model}, N={seeds}, "
+          f"{agents}ag, rounds={rounds}, B_bind={B_BIND:.0f}/B_loose={B_LOOSE:.0f}) ===")
+    arms_spec = [
+        ("none",                "—",        "무규제(기준선)",            _intercept_none,                []),
+        ("neutral_filler",      "입력(대조)", "중립 길이(결정적 대조)",     _intercept_none,                ["neutral_filler"]),
+        ("fairshare_anchor",    "입력(대조)", "공정몫 숫자 앵커",          _intercept_none,                ["fairshare_anchor"]),
+        ("reputation_feedback", "입력",      "평판 피드백 프레이밍",        _intercept_none,                ["reputation_feedback"]),
+        ("superordinate",       "입력",      "상위목표 정체성",            _intercept_none,                ["superordinate_identity"]),
+        ("social",              "출력",      "가십 캡 + 배제",            _intercept_social,              []),
+        ("dumb_cap",            "출력",      "단순 비율 캡",              _intercept_dumbcap,             []),
+        ("qv_flat",             "출력",      "진짜 QV·무가중(B물림)",      _intercept_qv(False, B_BIND),   []),
+        ("qv_rep",              "출력",      "진짜 QV·평판가중(B물림)",    _intercept_qv(True, B_BIND),    []),
+        ("qv_rep_loose",        "출력",      "QV·평판가중(B느슨=대조)",    _intercept_qv(True, B_LOOSE),   []),
+    ]
+    arms, meta = {}, {}
+    for name, lever, mech, ib, sh in arms_spec:
+        a = await _seeded(name, ib, sh, agents, pool, workload, rounds, backend, seeds)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        meta[name] = {"lever": lever, "mechanism": mech}
+        print(f"[{lever}] {name:<20} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    gov = [n for n, *_ in arms_spec if n != "none"]
+    govf = [n for n, *_ in arms_spec if n not in ("none", "neutral_filler")]
+    none_top, none_comp = C["none"]["top_raw"], C["none"]["comp_raw"]
+    fil_top = C["neutral_filler"]["top_raw"]
+    top_adj = holm([(f"top {g} vs none", permutation_p(C[g]["top_raw"], none_top)) for g in gov])
+    wf_adj = holm([(f"welfare {g} vs none", permutation_p(C[g]["comp_raw"], none_comp)) for g in gov])
+    fil_adj = holm([(f"top {g} vs neutral_filler", permutation_p(C[g]["top_raw"], fil_top)) for g in govf])
+    heads = [
+        ("top qv_rep(bind) vs qv_rep_loose (예산 물림이 핵심인가)", C["qv_rep"]["top_raw"], C["qv_rep_loose"]["top_raw"]),
+        ("top qv_flat vs qv_rep (평판가중 이득)", C["qv_flat"]["top_raw"], C["qv_rep"]["top_raw"]),
+        ("top qv_rep vs dumb_cap (QV가 단순캡보다)", C["qv_rep"]["top_raw"], C["dumb_cap"]["top_raw"]),
+        ("top reputation_feedback vs fairshare_anchor (사회성분이 숫자앵커 이상인가)", C["reputation_feedback"]["top_raw"], C["fairshare_anchor"]["top_raw"]),
+    ]
+    head_adj = holm([(lab, permutation_p(a, b)) for lab, a, b in heads])
+
+    for title, adj in [("1차: 독점 top 각 개입 vs none", top_adj),
+                       ("★결정적: 독점 top 각 개입 vs neutral_filler (길이를 이기나)", fil_adj),
+                       ("2차: 후생 welfare 각 개입 vs none", wf_adj),
+                       ("탐색: QV 예산물림·평판가중·머리맞댐", head_adj)]:
+        print(f"\n--- {title} (순열검정+Holm, 유의=p_adj<0.05) ---")
+        for lab, p, padj, sig in adj:
+            print(f"  [{'SIG' if sig else ' ns'}] {lab:<50} p={p:.4f}  p_holm={padj:.4f}")
+
+    fam = lambda adj: [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                       for lab, p, padj, sig in adj]
+    return {"experiment": "litmus",
+            "config": {"model": model, "temp": temp, "agents": agents, "pool": pool,
+                       "workload": workload, "rounds": rounds, "seeds": seeds,
+                       "qv_budget_bind": B_BIND, "qv_budget_loose": B_LOOSE},
+            "order": [n for n, *_ in arms_spec],
+            "meta": meta,
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts_top": fam(top_adj),
+            "contrasts_filler": fam(fil_adj),
+            "contrasts_welfare": fam(wf_adj),
+            "contrasts_heads": fam(head_adj)}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
                              "phase_d", "phase_d_placebo", "caste_lambda", "elder", "qv",
-                             "unified"])
+                             "unified", "litmus"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -701,6 +772,8 @@ async def main():
         res = await run_qv(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "unified":
         res = await run_unified(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "litmus":
+        res = await run_litmus(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 
