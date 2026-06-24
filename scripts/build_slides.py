@@ -225,7 +225,7 @@ def slides():
     # 2 — 문제 + greedy agent
     S.append(f"""<div class="s">
 <div class="snum">문제 · 그리고 "greedy agent"란</div>
-<h2>여러 LLM이 자원을 다투면 <span class="hl">공유지의 비극</span>이 되살아난다</h2>
+<h2>여러 LLM이 자원을 다투면 <span class="hl">공유지의 비극(tragedy of the commons)</span>이 되살아난다</h2>
 <div class="two">
 <div>
 <p class="lead">{cfg['agents']}개 에이전트가 각자 과업을 갖고 <b>하나의 공유 자원(컴퓨트 풀 {cfg['pool']})</b>을 두고 경쟁한다. 탐욕 = 풀을 선점해 남을 굶기는 것.</p>
@@ -234,7 +234,7 @@ def slides():
 <div class="pt">(경쟁적이며, 남보다 먼저 끝내면 큰 보너스 — 공정함보다 먼저 끝내는 게 더 중요.)</div></div>
 </div>
 <ul class="big">
-<li>미리 짠 욕심 스크립트가 <b>아니다</b> — 실 모델이 이 동기 아래 <b>스스로 독식(탐욕의 *창발*)</b></li>
+<li>미리 짠 욕심 스크립트가 <b>아니다</b> — 실제 모델이 이 동기 아래 <b>스스로 독식</b>(탐욕의 *창발*, emergence: 시키지 않아도 저절로 나타남)</li>
 <li>매 라운드 "공정 몫 ≈ 풀÷n"도 함께 알려줌 → 그럼에도 과점이 나타나는지 관찰</li>
 <li>다스리는 손잡이 둘: <span class="tag in">입력측</span> 설득 · <span class="tag out">출력측</span> 깎기</li>
 </ul>
@@ -265,7 +265,7 @@ def slides():
 </div>
 <p class="lead center">거버넌스 효과는 <b>조건의존</b>이다. 자원이 넉넉하면 독점이 없어 거버넌스가 불필요하고(겉보기 효과=길이 아티팩트),
 <b>희소+사재기 공격</b>에서야 진짜 독점이 생기며 선제적 캡만 그것을 막고 길이 대조군을 이긴다. 단 그 효과조차 <b>후생 트레이드오프</b>를 동반한다.</p>
-<div class="easy center"><span class="lab">💡 용어</span> <b>선제적 캡(proactive)</b> = 요청이 나오는 *즉시* 그 자리에서 잘라내는 규칙(예: "한 번에 풀의 22%까지만"). 사후에 평판이 쌓여야 작동하는 규칙과 반대. ·
+<div class="easy center"><span class="lab">💡 용어</span> <b>선제적 캡(proactive)</b> = 요청이 나오는 *즉시* 그 자리에서 잘라내는 규칙(예: "한 번에 풀의 22%까지만"). ↔ <b>사후적(reactive)</b> = 평판·점수가 *쌓인 뒤에야* 작동하는 규칙(평판·LLM 판관). ·
 <b>길이 대조군(neutral_filler)</b> = 공정성과 *무관한 무의미한 텍스트*를 같은 길이로 끼운 <b>가짜약(placebo)</b> — 진짜 효과인지 '그냥 글자 수가 늘어난 효과'인지 가르는 기준. ·
 <b>후생 트레이드오프</b> = 독점을 줄이려 잘랐더니 *아무도 제 분량을 못 끝내는* 부작용.</div>
 </div>""")
@@ -330,9 +330,12 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 <div class="three">
 <div class="mini"><b>① 공통 기준점</b><br>각 레짐 안에서 11개 조건 전부를 공통 baseline·N={cfg['seeds']}·동일 모델로 동시 측정</div>
 <div class="mini"><b>② 앵커·길이 대조군</b><br><code>fairshare_anchor</code>(숫자만)·<code>neutral_filler</code>(길이만)로 입력 효과를 성분 분해</div>
-<div class="mini"><b>③ 원자료 통계</b><br>bootstrap CI · 순열검정(정규근사 X) · Holm 다중보정(가족별)</div>
+<div class="mini"><b>③ 원자료로 통계</b><br><b>부트스트랩(bootstrap)</b> = 표본을 다시 뽑아 평균이 얼마나 흔들리는지 재봄 ·
+<b>순열검정(permutation test)</b> = 두 집단 라벨을 무작위로 섞어 "우연히 이만한 차이가 날 확률(p값)"을 직접 셈 ·
+<b>Holm 보정(correction)</b> = 여러 번 비교하면 우연히 '유의'가 나오기 쉬워 → 그만큼 합격선을 깐깐하게</div>
 </div>
-<div class="easy"><span class="lab">💡</span> 표본은 <b>온도 {cfg['temp']}·고정 시드 없음</b> → 재현은 비트가 아니라 *분포적*. 모델 = <b>{model}</b> (이번엔 11조건 전부 동일).</div>
+<div class="easy"><span class="lab">💡</span> 쉽게: 한 번의 결과는 운일 수 있으니 <b>같은 실험을 N={cfg['seeds']}번 반복</b>해 평균과 그 흔들림(신뢰구간)을 보고,
+"규제를 켠 쪽과 끈 쪽의 차이가 *운으로 설명되지 않는가*"를 위 세 도구로 깐깐하게 따진다. 모델 = <b>{model}</b>(온도 {cfg['temp']}·매번 조금씩 다른 답).</div>
 </div>""")
 
     # 10 — 조건: 입력측 먼저 (+ 대조군)
@@ -367,7 +370,9 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 <tr><td><code>ledger_elder</code></td><td>LLM *판관* 원장 — 근거를 읽고 채점</td><td>Elder가 에피소드당 1회 REASON 채점(0~10) → <code>α=0.5</code>로 rule과 혼합</td></tr>
 <tr><td><code>qv_flat</code> / <code>qv_rep</code></td><td>진짜 이차투표(Weyl) — 고정 예산 + 2차 비용</td><td><code>cost=d²/rep</code>, 상한 <code>√((B−spent)·rep)</code>, B={int(cfg['budget_B'])} · flat=무가중, rep=평판가중</td></tr>
 </tbody></table>
-<div class="easy"><span class="lab">💡</span> <b>가십캡</b>: 남은 풀의 22%를 평판으로 더 깎고(rep 낮을수록 캡↓), 평판 낮은 에이전트를 *방송*해 망신주며, 0.45 미만이면 아예 거부(배제). <b>진짜 QV</b>: 한곳에 몰아 요청하면 비용이 제곱으로 폭증 → 고정 예산이 분산을 강제.</div>
+<div class="easy"><span class="lab">💡</span> <b>가십캡(gossip cap)</b>: 남은 풀의 22%를 평판으로 더 깎고(평판 낮을수록 캡↓), 평판 낮은 에이전트를 *방송(소문)* 해 망신주며, 0.45 미만이면 아예 거부(배제=ostracism). ·
+<b>평판 망각(Beta+λ)</b>: 과거 행동을 *조금씩 잊어*(λ=망각 속도) 한 번 찍혀도 회복할 길을 줌. ·
+<b>진짜 이차투표(Quadratic Voting, QV)</b>: 한곳에 몰아 요청하면 비용이 *제곱(²)* 으로 폭증 → 고정 예산이 자연히 분산을 강제(경제학의 이차투표를 자원 배분에 차용).</div>
 <div class="foot">참고문헌(식 출처): 가십·간접상호성 Milinski 2002(Nature 415:424) · 배제·이타적처벌 Fehr &amp; Gächter 2002(Nature 415:137) ·
 Beta 평판 Jøsang &amp; Ismail 2002 · LLM-판관 Zheng 2023(arXiv:2306.05685) · 이차투표(QV) Weyl 2017·Lalley &amp; Weyl 2018·FedQV(arXiv:2401.01168) · 구현 <code>governance/{{nullcap,reputation_calc,beta_ostracism,elder,qv}}.py</code></div>
 </div>""")
@@ -424,6 +429,7 @@ Beta 평판 Jøsang &amp; Ismail 2002 · LLM-판관 Zheng 2023(arXiv:2306.05685)
 </div>
 <p class="lead center">무규제 독점(top-share)이 풍요 {TV('none'):.2f} → 희소 {F['none']['top_mean']:.2f} → 희소+사재기 <b>{THv('none'):.2f}</b>로 치솟는다(교차 p={crossp:.4f}).
 거버넌스가 막을 독점이 *있어야* 효과를 잴 수 있다 — 이제 진짜 시험대가 열린다.</p>
+<div class="easy center"><span class="lab">💡 용어</span> <b>희소(scarcity)</b> = 자원이 수요보다 적은 상태(여기선 풀을 수요의 절반으로) · <b>사재기(hoarding)</b> = 자기에게 필요한 양보다 *훨씬 많이* 선점하려는 공격 · <b>간접 vs 직접</b> = 욕심이 경쟁 속에 *저절로 생기는* 경우(간접) vs *작정하고 다 쓸어가는* 경우(직접).</div>
 </div>""")
 
     # 16 — ② 희소·간접(빨리끝내기) 독점 그래프
