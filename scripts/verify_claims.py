@@ -583,11 +583,84 @@ async def run_qv(backend, seeds, agents, pool, workload, rounds, model, temp):
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_unified(backend, seeds, agents, pool, workload, rounds, model, temp):
+    """통합 실험 (단일 흐름): 모든 거버넌스 조건을 *하나의 공통 baseline·하나의 설정·하나의 모델*에서
+    측정한 단일 비교. V6 입력/출력 7-arm + Beta-λ 망각(Phase1) + Elder LLM-judge(Phase2) +
+    진짜 QV 무가중/평판가중(Phase3)을 한 실험에 두어, '무규제→단순캡→사회/평판→입력 프레이밍→
+    평판 망각→LLM 판관→진짜 QV' 스펙트럼 위에서 *어느 개입이 통제 검정을 통과하는가*를 한눈에
+    비교한다. 모든 arm이 같은 flash·같은 n·같은 baseline이므로 V6과 BCDE를 직접 비교 가능
+    (이전에는 V6=GLM-4.6, BCDE=flash로 모델이 달라 합칠 수 없었음). 1차 가족=독점(top) 각 개입
+    vs none(Holm), 2차=후생(welfare) 각 개입 vs none(Holm), 탐색=주요 머리맞댐(별도 Holm)."""
+    QV_BUDGET = 20000.0
+    beta = lambda l: functools.partial(beta_reputation, lam=l)
+    print(f"\n=== 통합 실험: 11-arm 단일 흐름 (공통 baseline, {model}, N={seeds}, "
+          f"{agents}ag, rounds={rounds}, QV B={QV_BUDGET:.0f}) ===")
+    # (name, lever, mechanism, intercept_builder, shapers, rep_fn) — 스펙트럼 순서
+    arms_spec = [
+        ("none",                "—",   "무규제(기준선)",          _intercept_none,                      [],                          linear_reputation),
+        ("dumb_cap",            "출력", "단순 비율 캡",            _intercept_dumbcap,                   [],                          linear_reputation),
+        ("social",              "출력", "사회·평판(가십+배제)",     _intercept_social,                    [],                          linear_reputation),
+        ("ost_beta",            "출력", "평판 망각(Beta λ=0.7)",   _intercept_beta(0.7),                 [],                          beta(0.7)),
+        ("ledger_elder",        "출력", "LLM 판관(Elder α=0.5)",   _intercept_elder(0.5, backend=backend), [],                        linear_reputation),
+        ("qv_flat",             "출력", "진짜 QV·무가중",          _intercept_qv(False, QV_BUDGET),      [],                          linear_reputation),
+        ("qv_rep",              "출력", "진짜 QV·평판가중",        _intercept_qv(True, QV_BUDGET),       [],                          linear_reputation),
+        ("reputation_feedback", "입력", "평판 피드백 프레이밍",      _intercept_none,                      ["reputation_feedback"],     linear_reputation),
+        ("superordinate",       "입력", "상위목표 정체성 프레이밍",  _intercept_none,                      ["superordinate_identity"],  linear_reputation),
+        ("fairshare_anchor",    "입력", "공정몫 앵커(대조군)",      _intercept_none,                      ["fairshare_anchor"],        linear_reputation),
+        ("neutral_filler",      "입력", "중립 길이(대조군)",        _intercept_none,                      ["neutral_filler"],          linear_reputation),
+    ]
+    arms, meta = {}, {}
+    for name, lever, mech, ib, sh, rf in arms_spec:
+        a = await _seeded(name, ib, sh, agents, pool, workload, rounds, backend, seeds, rep_fn=rf)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        arms[name] = a
+        meta[name] = {"lever": lever, "mechanism": mech}
+        print(f"[{lever}] {name:<20} welfare {a['comp_mean']:.2f} boot[{a['comp_boot'][0]:.2f},{a['comp_boot'][1]:.2f}]"
+              f"  top {a['top_mean']:.3f} boot[{a['top_boot'][0]:.3f},{a['top_boot'][1]:.3f}]  n={a['n']}")
+
+    C = arms
+    gov = [n for n, *_ in arms_spec if n != "none"]
+    none_top, none_comp = C["none"]["top_raw"], C["none"]["comp_raw"]
+    # 1차 가족: 독점(top) 각 개입 vs none
+    top_adj = holm([(f"top {g} vs none", permutation_p(C[g]["top_raw"], none_top)) for g in gov])
+    # 2차 가족: 후생(welfare) 각 개입 vs none
+    wf_adj = holm([(f"welfare {g} vs none", permutation_p(C[g]["comp_raw"], none_comp)) for g in gov])
+    # 탐색 가족: 주요 머리맞댐(정교한 개입이 단순한 것보다 나은가)
+    heads = [
+        ("top qv_rep vs qv_flat (평판가중 이득)", C["qv_rep"]["top_raw"], C["qv_flat"]["top_raw"]),
+        ("top qv_flat vs dumb_cap (QV가 단순캡보다)", C["qv_flat"]["top_raw"], C["dumb_cap"]["top_raw"]),
+        ("top social vs dumb_cap (평판이 단순캡보다)", C["social"]["top_raw"], C["dumb_cap"]["top_raw"]),
+        ("top ost_beta vs social (망각이 누적보다)", C["ost_beta"]["top_raw"], C["social"]["top_raw"]),
+        ("top ledger_elder vs social (LLM judge가 규칙보다)", C["ledger_elder"]["top_raw"], C["social"]["top_raw"]),
+    ]
+    head_adj = holm([(lab, permutation_p(a, b)) for lab, a, b in heads])
+
+    for title, adj in [("1차: 독점 top 각 개입 vs none", top_adj),
+                       ("2차: 후생 welfare 각 개입 vs none", wf_adj),
+                       ("탐색: 정교함 머리맞댐", head_adj)]:
+        print(f"\n--- {title} (순열검정+Holm, 유의=p_adj<0.05) ---")
+        for lab, p, padj, sig in adj:
+            print(f"  [{'SIG' if sig else ' ns'}] {lab:<46} p={p:.4f}  p_holm={padj:.4f}")
+
+    fam = lambda adj: [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                       for lab, p, padj, sig in adj]
+    return {"experiment": "unified",
+            "config": {"model": model, "temp": temp, "agents": agents, "pool": pool,
+                       "workload": workload, "rounds": rounds, "seeds": seeds, "budget_B": QV_BUDGET},
+            "order": [n for n, *_ in arms_spec],
+            "meta": meta,
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts_top": fam(top_adj),
+            "contrasts_welfare": fam(wf_adj),
+            "contrasts_heads": fam(head_adj)}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
-                             "phase_d", "phase_d_placebo", "caste_lambda", "elder", "qv"])
+                             "phase_d", "phase_d_placebo", "caste_lambda", "elder", "qv",
+                             "unified"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -626,6 +699,8 @@ async def main():
         res = await run_elder(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "qv":
         res = await run_qv(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "unified":
+        res = await run_unified(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 

@@ -1,0 +1,113 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>통합 거버넌스 실험 — 단일 흐름 리포트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#e6b800;--ink:#1a1a1a;--mut:#666;--line:#e6e3dc;--bg:#faf8f3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:'Pretendard',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.65}
+.wrap{max-width:920px;margin:0 auto;padding:56px 28px 100px}
+h1{font-family:'Crimson Pro',serif;font-weight:700;font-size:34px;margin:0 0 6px;letter-spacing:-.5px}
+h2{font-family:'Crimson Pro',serif;font-weight:600;font-size:24px;margin:48px 0 14px;
+ padding-bottom:8px;border-bottom:2px solid var(--ink)}
+h3{font-size:16px;margin:26px 0 8px;color:#333}
+.sub{color:var(--mut);font-size:15px;margin:0 0 8px}
+.bluf{background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);
+ border-radius:10px;padding:20px 22px;margin:22px 0}
+.bluf b{color:#000}
+.big{font-size:30px;font-family:'Crimson Pro',serif;font-weight:700;color:var(--gold)}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px;background:#fff;
+ border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:#f3f0e8;font-weight:600;font-size:12px;color:#555;text-transform:uppercase;letter-spacing:.4px}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.arm{font-weight:600;font-family:ui-monospace,monospace}
+td.mech{color:#444} td.lab{font-size:12.5px}
+.ci{color:#aaa;font-size:11px;margin-left:5px}
+.lev{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid}
+.sig{color:#2e9e6b;font-weight:700;font-size:11px}
+.ns{color:#b08;opacity:.6;font-size:11px}
+.chart{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 4px;margin:8px 0}
+.chart .bl{font:600 12px ui-monospace,monospace;fill:#333}
+.chart .vl{font:11px ui-monospace,monospace;fill:#777}
+.easy{background:#eef7f0;border:1px solid #cfe6d6;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:14px}
+.easy b{color:#2e7d4f}
+.note{font-size:13px;color:var(--mut);margin-top:6px}
+code{background:#efece4;padding:1px 6px;border-radius:4px;font-size:12.5px}
+.foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line);color:#999;font-size:12.5px}
+ul{font-size:14.5px} li{margin:5px 0}
+</style></head><body><div class="wrap">
+
+<h1>통합 거버넌스 실험 — 단일 흐름 리포트</h1>
+<p class="sub">모든 개입을 <b>하나의 공통 baseline·하나의 모델(z-ai/glm-4.7-flash)·하나의 설정</b>에서
+측정한 단일 비교 · N=30 시드 · ['A', 'B', 'C', 'D']에이전트 · 8라운드 · 공유풀 480</p>
+
+<div class="bluf">
+<p style="margin:0 0 8px"><b>한눈에(BLUF).</b> 11개 거버넌스 개입을 한 줄의 스펙트럼
+(무규제 → 단순 캡 → 사회·평판 → 입력 프레이밍 → 평판 망각 → LLM 판관 → 진짜 QV) 위에 놓고
+공통 baseline(<code>none</code>)과 비교했다.</p>
+<p style="margin:0">독점(top_share)을 Holm 보정 후 <b>유의하게</b> 줄인 개입:
+<span class="big">0</span> / 10 &nbsp;·&nbsp; 후생(welfare)을 유의하게 바꾼 개입:
+<span class="big">3</span> / 10.
+이 리포트의 목적은 '작동하는 거버넌스 발견'이 아니라 <b>통제된 비교 방법론으로 각 개입의 효과가
+진짜인지 아티팩트인지 가르는 것</b>이다 — 음성 결과도 동등한 기여다.</p>
+</div>
+
+<div class="easy"><b>💡 쉽게.</b> 같은 출발선(아무 규제 없는 <code>none</code>)에서 11가지 규제 방식을
+하나씩 켜 보고, 독점(<code>top_share</code>: 한 에이전트가 가져간 자원 비율, <b>낮을수록 공평</b>)과
+후생(<code>welfare</code>: 전원이 각자 과제를 끝낸 비율, <b>높을수록 좋음</b>)이 통계적으로 의미 있게
+바뀌는지를 본다. '의미 있다'의 기준은 여러 번 비교할 때 생기는 운(다중검정)을 Holm 보정으로 깎아낸 뒤의
+값(<code>p_holm</code> &lt; 0.05)이다.</div>
+
+<h2>1. 단일 흐름 — 전체 스펙트럼</h2>
+<p class="sub">왼쪽 <span class="lev" style="background:#6ea8fe1a;color:#6ea8fe;border-color:#6ea8fe55">입력</span>=프롬프트를
+바꾸는 개입(행동 채널), <span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span>=요청을
+가로채 캡/거부하는 개입. <b>효과 스펙트럼</b>(약한 개입→정교한 개입) 순으로 정렬했다.
+▼SIG=해당 개입이 독점을 유의하게 낮춤.</p>
+<table><thead><tr><th>레버</th><th>조건</th><th>기제</th><th>top_share ↓</th><th>welfare ↑</th><th>n</th></tr></thead>
+<tbody><tr><td><span class="lev" style="background:#8881a;color:#888;border-color:#88855">—</span></td><td class="arm">none</td><td class="mech">무규제(기준선)</td><td class="num">0.336<span class="ci">[0.261,0.425]</span></td><td class="num">0.90<span class="ci">[0.81,0.97]</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span></td><td class="arm">dumb_cap</td><td class="mech">단순 비율 캡</td><td class="num">0.292<span class="ci">[0.287,0.296]</span> <span class="ns">ns</span></td><td class="num">0.70<span class="ci">[0.66,0.74]</span> <span class="sig">SIG</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span></td><td class="arm">social</td><td class="mech">사회·평판(가십+배제)</td><td class="num">0.274<span class="ci">[0.266,0.281]</span> <span class="ns">ns</span></td><td class="num">0.77<span class="ci">[0.69,0.84]</span> <span class="ns">ns</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span></td><td class="arm">ost_beta</td><td class="mech">평판 망각(Beta λ=0.7)</td><td class="num">0.461<span class="ci">[0.352,0.584]</span> <span class="ns">ns</span></td><td class="num">0.68<span class="ci">[0.57,0.79]</span> <span class="sig">SIG</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span></td><td class="arm">ledger_elder</td><td class="mech">LLM 판관(Elder α=0.5)</td><td class="num">0.473<span class="ci">[0.408,0.551]</span> <span class="ns">ns</span></td><td class="num">0.36<span class="ci">[0.32,0.40]</span> <span class="sig">SIG</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span></td><td class="arm">qv_flat</td><td class="mech">진짜 QV·무가중</td><td class="num">0.260<span class="ci">[0.254,0.268]</span> <span class="ns">ns</span></td><td class="num">0.94<span class="ci">[0.90,0.97]</span> <span class="ns">ns</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#e6b8001a;color:#e6b800;border-color:#e6b80055">출력</span></td><td class="arm">qv_rep</td><td class="mech">진짜 QV·평판가중</td><td class="num">0.254<span class="ci">[0.250,0.260]</span> <span class="ns">ns</span></td><td class="num">0.97<span class="ci">[0.94,1.00]</span> <span class="ns">ns</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#6ea8fe1a;color:#6ea8fe;border-color:#6ea8fe55">입력</span></td><td class="arm">reputation_feedback</td><td class="mech">평판 피드백 프레이밍</td><td class="num">0.250<span class="ci">[0.250,0.251]</span> <span class="ns">ns</span></td><td class="num">0.99<span class="ci">[0.97,1.00]</span> <span class="ns">ns</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#6ea8fe1a;color:#6ea8fe;border-color:#6ea8fe55">입력</span></td><td class="arm">superordinate</td><td class="mech">상위목표 정체성 프레이밍</td><td class="num">0.286<span class="ci">[0.255,0.340]</span> <span class="ns">ns</span></td><td class="num">0.90<span class="ci">[0.83,0.95]</span> <span class="ns">ns</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#6ea8fe1a;color:#6ea8fe;border-color:#6ea8fe55">입력</span></td><td class="arm">fairshare_anchor</td><td class="mech">공정몫 앵커(대조군)</td><td class="num">0.350<span class="ci">[0.275,0.450]</span> <span class="ns">ns</span></td><td class="num">0.90<span class="ci">[0.80,0.97]</span> <span class="ns">ns</span></td><td class="num">30</td></tr><tr><td><span class="lev" style="background:#6ea8fe1a;color:#6ea8fe;border-color:#6ea8fe55">입력</span></td><td class="arm">neutral_filler</td><td class="mech">중립 길이(대조군)</td><td class="num">0.252<span class="ci">[0.250,0.255]</span> <span class="ns">ns</span></td><td class="num">0.98<span class="ci">[0.96,1.00]</span> <span class="ns">ns</span></td><td class="num">30</td></tr></tbody></table>
+
+<h3>독점(top_share) — 낮을수록 공평 · 점선=무규제 기준</h3>
+<svg viewBox="0 0 780 354" class="chart" role="img"><text x="142" y="31" text-anchor="end" class="bl">none</text><rect x="150" y="21" width="397.4" height="16" rx="3" fill="#999"/><line x1="459.0" x2="653.5" y1="29" y2="29" stroke="#222" stroke-width="1.4"/><text x="553.4" y="33" class="vl">0.336</text><text x="142" y="61" text-anchor="end" class="bl">dumb_cap</text><rect x="150" y="51" width="345.3" height="16" rx="3" fill="#2e9e6b"/><line x1="489.3" x2="500.8" y1="59" y2="59" stroke="#222" stroke-width="1.4"/><text x="501.3" y="63" class="vl">0.292</text><text x="142" y="91" text-anchor="end" class="bl">social</text><rect x="150" y="81" width="324.3" height="16" rx="3" fill="#2e9e6b"/><line x1="465.3" x2="483.2" y1="89" y2="89" stroke="#222" stroke-width="1.4"/><text x="480.3" y="93" class="vl">0.274</text><text x="142" y="121" text-anchor="end" class="bl">ost_beta</text><rect x="150" y="111" width="545.2" height="16" rx="3" fill="#c0563b"/><line x1="567.1" x2="841.9" y1="119" y2="119" stroke="#222" stroke-width="1.4"/><text x="701.2" y="123" class="vl">0.461</text><text x="142" y="151" text-anchor="end" class="bl">ledger_elder</text><rect x="150" y="141" width="560.0" height="16" rx="3" fill="#c0563b"/><line x1="632.8" x2="802.1" y1="149" y2="149" stroke="#222" stroke-width="1.4"/><text x="716.0" y="153" class="vl">0.473</text><text x="142" y="181" text-anchor="end" class="bl">qv_flat</text><rect x="150" y="171" width="308.1" height="16" rx="3" fill="#2e9e6b"/><line x1="451.1" x2="466.8" y1="179" y2="179" stroke="#222" stroke-width="1.4"/><text x="464.1" y="183" class="vl">0.260</text><text x="142" y="211" text-anchor="end" class="bl">qv_rep</text><rect x="150" y="201" width="301.1" height="16" rx="3" fill="#2e9e6b"/><line x1="445.9" x2="458.1" y1="209" y2="209" stroke="#222" stroke-width="1.4"/><text x="457.1" y="213" class="vl">0.254</text><text x="142" y="241" text-anchor="end" class="bl">reputation_feedback</text><rect x="150" y="231" width="296.5" height="16" rx="3" fill="#2e9e6b"/><line x1="445.9" x2="447.5" y1="239" y2="239" stroke="#222" stroke-width="1.4"/><text x="452.5" y="243" class="vl">0.250</text><text x="142" y="271" text-anchor="end" class="bl">superordinate</text><rect x="150" y="261" width="338.2" height="16" rx="3" fill="#2e9e6b"/><line x1="451.4" x2="552.1" y1="269" y2="269" stroke="#222" stroke-width="1.4"/><text x="494.2" y="273" class="vl">0.286</text><text x="142" y="301" text-anchor="end" class="bl">fairshare_anchor</text><rect x="150" y="291" width="414.3" height="16" rx="3" fill="#c0563b"/><line x1="475.5" x2="682.7" y1="299" y2="299" stroke="#222" stroke-width="1.4"/><text x="570.3" y="303" class="vl">0.350</text><text x="142" y="331" text-anchor="end" class="bl">neutral_filler</text><rect x="150" y="321" width="298.3" height="16" rx="3" fill="#2e9e6b"/><line x1="445.9" x2="452.4" y1="329" y2="329" stroke="#222" stroke-width="1.4"/><text x="454.3" y="333" class="vl">0.252</text><line x1="547.4" x2="547.4" y1="10" y2="346" stroke="#e6b800" stroke-width="1.3" stroke-dasharray="4 3"/><text x="551.4" y="352" class="vl" fill="#e6b800">none=0.336</text></svg>
+
+<h3>후생(welfare) — 높을수록 좋음 · 점선=무규제 기준</h3>
+<svg viewBox="0 0 780 354" class="chart" role="img"><text x="142" y="31" text-anchor="end" class="bl">none</text><rect x="150" y="21" width="508.2" height="16" rx="3" fill="#999"/><line x1="606.5" x2="700.6" y1="29" y2="29" stroke="#222" stroke-width="1.4"/><text x="664.2" y="33" class="vl">0.900</text><text x="142" y="61" text-anchor="end" class="bl">dumb_cap</text><rect x="150" y="51" width="395.3" height="16" rx="3" fill="#c0563b"/><line x1="521.8" x2="568.8" y1="59" y2="59" stroke="#222" stroke-width="1.4"/><text x="551.3" y="63" class="vl">0.700</text><text x="142" y="91" text-anchor="end" class="bl">social</text><rect x="150" y="81" width="432.9" height="16" rx="3" fill="#c0563b"/><line x1="540.6" x2="625.3" y1="89" y2="89" stroke="#222" stroke-width="1.4"/><text x="588.9" y="93" class="vl">0.767</text><text x="142" y="121" text-anchor="end" class="bl">ost_beta</text><rect x="150" y="111" width="385.9" height="16" rx="3" fill="#c0563b"/><line x1="474.7" x2="597.1" y1="119" y2="119" stroke="#222" stroke-width="1.4"/><text x="541.9" y="123" class="vl">0.683</text><text x="142" y="151" text-anchor="end" class="bl">ledger_elder</text><rect x="150" y="141" width="202.4" height="16" rx="3" fill="#c0563b"/><line x1="328.8" x2="375.9" y1="149" y2="149" stroke="#222" stroke-width="1.4"/><text x="358.4" y="153" class="vl">0.358</text><text x="142" y="181" text-anchor="end" class="bl">qv_flat</text><rect x="150" y="171" width="531.8" height="16" rx="3" fill="#2e9e6b"/><line x1="658.2" x2="700.6" y1="179" y2="179" stroke="#222" stroke-width="1.4"/><text x="687.8" y="183" class="vl">0.942</text><text x="142" y="211" text-anchor="end" class="bl">qv_rep</text><rect x="150" y="201" width="550.6" height="16" rx="3" fill="#2e9e6b"/><line x1="681.8" x2="714.7" y1="209" y2="209" stroke="#222" stroke-width="1.4"/><text x="706.6" y="213" class="vl">0.975</text><text x="142" y="241" text-anchor="end" class="bl">reputation_feedback</text><rect x="150" y="231" width="560.0" height="16" rx="3" fill="#2e9e6b"/><line x1="700.6" x2="714.7" y1="239" y2="239" stroke="#222" stroke-width="1.4"/><text x="716.0" y="243" class="vl">0.992</text><text x="142" y="271" text-anchor="end" class="bl">superordinate</text><rect x="150" y="261" width="508.2" height="16" rx="3" fill="#2e9e6b"/><line x1="620.6" x2="686.5" y1="269" y2="269" stroke="#222" stroke-width="1.4"/><text x="664.2" y="273" class="vl">0.900</text><text x="142" y="301" text-anchor="end" class="bl">fairshare_anchor</text><rect x="150" y="291" width="508.2" height="16" rx="3" fill="#2e9e6b"/><line x1="601.8" x2="700.6" y1="299" y2="299" stroke="#222" stroke-width="1.4"/><text x="664.2" y="303" class="vl">0.900</text><text x="142" y="331" text-anchor="end" class="bl">neutral_filler</text><rect x="150" y="321" width="555.3" height="16" rx="3" fill="#2e9e6b"/><line x1="691.2" x2="714.7" y1="329" y2="329" stroke="#222" stroke-width="1.4"/><text x="711.3" y="333" class="vl">0.983</text><line x1="658.2" x2="658.2" y1="10" y2="346" stroke="#e6b800" stroke-width="1.3" stroke-dasharray="4 3"/><text x="662.2" y="352" class="vl" fill="#e6b800">none=0.900</text></svg>
+
+<h2>2. 대조 검정 — 1차: 독점 각 개입 vs 무규제</h2>
+<p class="sub">1차 가족: 각 개입이 무규제 대비 독점을 바꾸나? 순열검정(정규성 가정 없음) → Holm 보정.</p>
+<table class="ct"><thead><tr><th></th><th>대조</th><th>p</th><th>p_holm</th></tr></thead><tbody><tr><td><span class="ns">ns</span></td><td class="lab">top ledger_elder vs none</td><td class="num">0.0159</td><td class="num">0.1590</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top reputation_feedback vs none</td><td class="num">0.0812</td><td class="num">0.7307</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top neutral_filler vs none</td><td class="num">0.1003</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top ost_beta vs none</td><td class="num">0.1067</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top qv_rep vs none</td><td class="num">0.1086</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top qv_flat vs none</td><td class="num">0.1165</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top social vs none</td><td class="num">0.1916</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top dumb_cap vs none</td><td class="num">0.2483</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top superordinate vs none</td><td class="num">0.3612</td><td class="num">0.8023</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top fairshare_anchor vs none</td><td class="num">1.0000</td><td class="num">1.0000</td></tr></tbody></table>
+
+<h2>3. 대조 검정 — 2차: 후생 각 개입 vs 무규제</h2>
+<table class="ct"><thead><tr><th></th><th>대조</th><th>p</th><th>p_holm</th></tr></thead><tbody><tr><td><span class="sig">SIG</span></td><td class="lab">welfare ledger_elder vs none</td><td class="num">0.0001</td><td class="num">0.0010</td></tr><tr><td><span class="sig">SIG</span></td><td class="lab">welfare dumb_cap vs none</td><td class="num">0.0002</td><td class="num">0.0018</td></tr><tr><td><span class="sig">SIG</span></td><td class="lab">welfare ost_beta vs none</td><td class="num">0.0059</td><td class="num">0.0472</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare social vs none</td><td class="num">0.0400</td><td class="num">0.2800</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare reputation_feedback vs none</td><td class="num">0.0812</td><td class="num">0.4872</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare neutral_filler vs none</td><td class="num">0.1128</td><td class="num">0.5639</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare qv_rep vs none</td><td class="num">0.1569</td><td class="num">0.6275</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare qv_flat vs none</td><td class="num">0.4945</td><td class="num">1.0000</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare superordinate vs none</td><td class="num">1.0000</td><td class="num">1.0000</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">welfare fairshare_anchor vs none</td><td class="num">1.0000</td><td class="num">1.0000</td></tr></tbody></table>
+
+<h2>4. 대조 검정 — 탐색: 정교한 개입이 단순한 것보다 나은가</h2>
+<p class="sub">평판가중 QV vs 무가중 QV, QV vs 단순캡, 평판 vs 단순캡, 망각 vs 누적,
+LLM 판관 vs 규칙. 정교함이 추가 신호를 주는지의 머리맞댐(별도 Holm 가족).</p>
+<table class="ct"><thead><tr><th></th><th>대조</th><th>p</th><th>p_holm</th></tr></thead><tbody><tr><td><span class="sig">SIG</span></td><td class="lab">top qv_flat vs dumb_cap (QV가 단순캡보다)</td><td class="num">0.0001</td><td class="num">0.0005</td></tr><tr><td><span class="sig">SIG</span></td><td class="lab">top ledger_elder vs social (LLM judge가 규칙보다)</td><td class="num">0.0001</td><td class="num">0.0005</td></tr><tr><td><span class="sig">SIG</span></td><td class="lab">top social vs dumb_cap (평판이 단순캡보다)</td><td class="num">0.0002</td><td class="num">0.0006</td></tr><tr><td><span class="sig">SIG</span></td><td class="lab">top ost_beta vs social (망각이 누적보다)</td><td class="num">0.0050</td><td class="num">0.0100</td></tr><tr><td><span class="ns">ns</span></td><td class="lab">top qv_rep vs qv_flat (평판가중 이득)</td><td class="num">0.2947</td><td class="num">0.2947</td></tr></tbody></table>
+
+<h2>5. 방법론과 정직한 해석</h2>
+<p>모든 arm은 <b>동일한 무규제 baseline</b>에서 분기하며, 같은 모델(<code>z-ai/glm-4.7-flash</code>)·
+같은 ['A', 'B', 'C', 'D']에이전트·같은 공유풀(480)·같은 8라운드를 공유한다.
+이전에는 V6(독점·후생 통제실험)이 GLM-4.6, BCDE 확장(망각·판관·QV)이 flash로 모델이 달라
+직접 비교가 불가능했으나, 본 실험은 <b>전부 flash로 재측정</b>해 한 흐름에 합쳤다.</p>
+<ul>
+<li><b>앵커/길이 대조군</b>(<code>fairshare_anchor</code>, <code>neutral_filler</code>): 입력 프레이밍의
+효과가 '공정성 내용' 때문인지 단지 '프롬프트가 길어져서'인지를 가른다.</li>
+<li><b>bootstrap 95% CI</b>: 평균의 불확실성을 원자료 재표집으로 추정(정규성 가정 없음).</li>
+<li><b>순열검정 + Holm</b>: 두 표본 평균차의 양측 p를 셔플로 구하고, 여러 대조를 동시에 볼 때의
+거짓양성을 Holm–Bonferroni로 보정.</li>
+</ul>
+<div class="easy"><b>💡 왜 음성 결과가 기여인가.</b> "이 규제가 독점을 줄였다"는 주장은 흔하지만,
+대부분 <b>대조군 없이</b> 측정돼 '프롬프트가 길어진 효과'나 '운'과 구별되지 않는다. 본 실험은 그 구별을
+강제한다 — 통제하면 대부분의 개입 효과가 사라진다는 것 자체가, 이 분야가 더 엄격한 검정을 필요로 한다는
+증거다.</div>
+
+<p class="note">범위: 모든 결과는 z-ai/glm-4.7-flash 기준이며 다른 모델로의 일반화를 주장하지 않는다.
+n=['A', 'B', 'C', 'D']는 QV 같은 메커니즘에는 작은 편(검정력 한계)이라 머리맞댐 가족의 음성 결과는
+'효과 없음'이 아니라 '이 규모에서 미검출'로 읽어야 한다.</p>
+
+<div class="foot">생성: <code>scripts/build_unified_report.py</code> ← <code>docs/verify_unified.json</code>
+(<code>scripts/verify_claims.py unified</code>) · Antigreedy A2A</div>
+</div></body></html>

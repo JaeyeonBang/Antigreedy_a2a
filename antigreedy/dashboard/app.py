@@ -182,8 +182,8 @@ def create_app(*, policies_dir: Path = REPO_POLICIES,
     # 해석되도록 docs/ 의 화이트리스트된 리포트 HTML을 *명시적 경로*로 서빙한다(catch-all 금지:
     # /config·/policies 등을 가려버리므로). 화이트리스트로 경로 traversal도 차단.
     _docs_dir = Path(__file__).resolve().parent.parent.parent / "docs"
-    _ext_reports = ["caste_report.html", "elder_report.html", "qv_report.html",
-                    "phase_d_report.html", "welfare_rescue_report.html"]
+    _ext_reports = ["unified_report.html", "caste_report.html", "elder_report.html",
+                    "qv_report.html", "phase_d_report.html", "welfare_rescue_report.html"]
 
     def _make_report_route(fname: str):
         async def _serve() -> HTMLResponse:
