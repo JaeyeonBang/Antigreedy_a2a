@@ -31,6 +31,8 @@
 
 이어 우리는 문헌이 제안한 *더 정교한* 출력측 기제 셋 — 평판 망각(Beta+λ)·Elder LLM-판관 원장·진짜 이차투표(QV) — 을 같은 통제 설계로 검정했다(§6). 세 실험 모두 같은 결론으로 수렴한다: **단순한 기반이 정교한 신호를 이긴다.** 현행 누적 평판은 회복률 0의 *영구 카스트*를 만들고(망각만이 회복을 살림), LLM 판관을 섞으면 불변 원장이 이른 오판을 동결해 순수 행동 평판보다 *나빠지며*, 평판가중 QV는 무가중 QV에 이득이 없다. 단 진짜 QV만 독점·후생을 *동시에(점추정상)* 개선하는 방향을 보였는데 — 비록 독점 감소는 Holm 보정에서 간발 미달(.054/.065)이고 후생 상승은 미유의(p=.10)지만 — 그 유망한 방향의 비결은 사회적 정교함이 아니라 **고정 예산이라는 단순한 구조 제약**이었다.
 
+**(갱신) 단일 흐름 재측정.** 위 §5는 GLM-4.6, §6은 glm-4.7-flash로 측정돼 두 블록을 직접 비교할 수 없었다. 이를 없애기 위해 **11개 개입 전부를 하나의 모델(flash)·하나의 공통 기준점·하나의 설정(N=30, 4에이전트)** 에서 다시 측정한 **통합 실험**을 추가했다(§5.0; [통합 리포트](/unified_report.html) · `verify_unified.json`). 단일 모델에서 결론은 오히려 더 또렷하다: Holm 보정 후 무규제 대비 독점(top-share)을 유의하게 줄인 개입은 **0/10**, 후생을 유의하게 바꾼 것은 3개인데 **전부 악화**였다(ledger_elder 0.90→0.36, dumb_cap→0.70, ost_beta→0.68). 점추정상 독점이 가장 낮은 입력 개입(reputation_feedback 0.250)은 *내용 없는 길이 채움 대조군*(neutral_filler 0.252)과 사실상 구분되지 않았다. 즉 모델을 통일해도 "겉보기 효과 대부분은 측정 아티팩트"라는 본 논문의 결론은 그대로 유지되며, §5–§6의 개별 분석은 이 단일 흐름의 *세부 해부*로 읽으면 된다.
+
 **Abstract (English).** LLM agents competing over a shared commons revive the tragedy of the commons. We ran the controlled experiment the field usually skips: all governance levers against one shared baseline in a single run, with anchoring/length controls, bootstrap CIs, permutation tests, and Holm correction. Of nine pre-specified contrasts, only two survive: superordinate identity reduces monopoly (top 0.65→0.41, p_holm<.001) and an output "social" policy *reduces* welfare (0.66→0.39, p_holm=.022). The reputation-feedback "win" is baseline drift plus numeric anchoring; a contentless banner tops welfare; social ≈ dumb cap on fairness. The contribution is methodological and negative.
 
 ---
@@ -138,6 +140,26 @@ rep   = clip( 1 − max(0, share − fair) / fair, 0.1, 1.0 )
 
 ## 5. 결과
 
+### 5.0 통합 흐름 — 단일 모델 재측정 (flash, 11-arm, N=30, 4에이전트)
+
+아래는 **모든 개입을 하나의 공통 기준점·하나의 모델(glm-4.7-flash)·하나의 설정에서** 측정한 단일 비교다(독점 top-share 오름차순 정렬 = "약한 개입→강한 캡" 스펙트럼). `verify_unified.json`에서 직접 산출했고([통합 리포트](/unified_report.html) 참조), §5.1–§6의 개별 실험은 이 흐름의 한 점씩을 확대한 것이다.
+
+| 조건 | 레버 | 기제 | welfare ↑ | top-share ↓ | 독점 vs none | 후생 vs none |
+|---|---|---|---|---|---|---|
+| reputation_feedback | 입력 | 평판 피드백 프레이밍 | 0.99 | **0.250** | ns | ns |
+| neutral_filler | 입력(대조) | 무내용 길이 채움 | 0.98 | 0.252 | ns | ns |
+| qv_rep | 출력 | 진짜 QV·평판가중 | 0.97 | 0.254 | ns | ns |
+| qv_flat | 출력 | 진짜 QV·무가중 | 0.94 | 0.260 | ns | ns |
+| social | 출력 | 가십 캡 + 배제 | 0.77 | 0.274 | ns | ns |
+| superordinate | 입력 | 상위목표 정체성 | 0.90 | 0.286 | ns | ns |
+| dumb_cap | 출력 | 단순 비율 캡 | 0.70 | 0.292 | ns | **SIG(악화)** |
+| none | — | 무규제(기준선) | 0.90 | 0.336 | — | — |
+| fairshare_anchor | 입력(대조) | 공정몫 숫자 앵커 | 0.90 | 0.350 | ns | ns |
+| ost_beta | 출력 | 평판 망각(Beta λ=0.7) | 0.68 | 0.461 | ns | **SIG(악화)** |
+| ledger_elder | 출력 | LLM 판관(Elder α=0.5) | 0.36 | 0.473 | ns | **SIG(악화)** |
+
+세 가지가 한눈에 드러난다. **(1)** 독점을 무규제 대비 유의하게 줄인 개입은 Holm 보정 후 **하나도 없다(0/10)**. 점추정상 가장 낮은 `reputation_feedback`(0.250)조차 *순수 길이 대조군* `neutral_filler`(0.252)와 사실상 같다 — "낮아 보임 ≠ 진짜 효과"이며, `none`의 분산이 커서(0.336, boot 폭 넓음) 어떤 캡도 보정을 못 넘는다. **(2)** 통계적으로 유의한 효과는 후생을 *해치는* 셋뿐이다: `ledger_elder`(0.90→0.36, p_holm=.001), `dumb_cap`(→0.70, p_holm=.002), `ost_beta`(→0.68, p_holm=.047). **(3)** 머리맞댐(탐색 가족)에선 `qv_flat`·`social`이 `dumb_cap`보다 빡빡하게 캡하고(SIG), 망각·LLM 판관은 `social`보다 *유의하게 나쁘며*(SIG), `qv_rep`은 `qv_flat`에 아무것도 더하지 못한다(ns) — **정교함의 상대 순위는 있어도 무규제 자체를 이기지는 못한다.**
+
 ### 5.1 통제 표 (N=30, 공통 기준점)
 
 | 조건 | welfare (bootstrap 95% CI) | top-share (bootstrap 95% CI) |
@@ -196,7 +218,7 @@ rep   = clip( 1 − max(0, share − fair) / fair, 0.1, 1.0 )
 
 ## 6. 거버넌스 메커니즘 확장 검정 (BCDE): 평판 망각 · Elder 원장 · 진짜 QV
 
-§5가 *입력 프레이밍*의 허상을 벗겼다면, 이 절은 향후 과제로 미뤘던 **출력측 거버넌스 기제 자체를 더 정교하게** 만들어 같은 통제 검정에 건다. 문헌이 제안한 세 레버 — (B/D) **평판 망각**(Beta+λ), (D) **Elder LLM-판관 원장**, (C) **진짜 이차투표(QV)** — 를 구현하고, V6와 *동일한 방법론*(공통 기준점·bootstrap·순열검정·Holm·원자료 0불일치 재계산)으로 측정했다. 모든 수치는 **glm-4.7-flash**(reasoning off)에서 나왔고, 세 실험의 전체 결과·수식·한계는 각 리포트에 있다([평판 망각](caste_report.html) · [Elder 원장](elder_report.html) · [진짜 QV](qv_report.html)). 세 실험은 §5와 같은 결론으로 수렴한다: **단순한 기반이 정교한 신호를 이긴다.** (다만 §6은 glm-4.7-flash, §5는 GLM-4.6이므로 이 "수렴"은 결과의 *직접 비교가 아니라 동일 방법론의 독립 적용*이다 — §8.)
+§5가 *입력 프레이밍*의 허상을 벗겼다면, 이 절은 향후 과제로 미뤘던 **출력측 거버넌스 기제 자체를 더 정교하게** 만들어 같은 통제 검정에 건다. 문헌이 제안한 세 레버 — (B/D) **평판 망각**(Beta+λ), (D) **Elder LLM-판관 원장**, (C) **진짜 이차투표(QV)** — 를 구현하고, V6와 *동일한 방법론*(공통 기준점·bootstrap·순열검정·Holm·원자료 0불일치 재계산)으로 측정했다. 모든 수치는 **glm-4.7-flash**(reasoning off)에서 나왔고, 세 실험의 전체 결과·수식·한계는 각 리포트에 있다([평판 망각](caste_report.html) · [Elder 원장](elder_report.html) · [진짜 QV](qv_report.html)). 세 실험은 §5와 같은 결론으로 수렴한다: **단순한 기반이 정교한 신호를 이긴다.** (원래 §6은 glm-4.7-flash, §5는 GLM-4.6이라 직접 비교가 아닌 *동일 방법론의 독립 적용*이었으나, **§5.0 통합 실험에서 이 세 기제를 V6 7-arm과 함께 flash로 재측정해 한 흐름에 합쳤다** — 이제 직접 비교가 가능하며, 아래 6.1–6.3은 그 단일 흐름의 각 점을 확대한 세부 해부다.)
 
 ### 6.1 평판 망각(Beta+λ): 현행 평판은 *영구 카스트*를 만든다 (N=30)
 
