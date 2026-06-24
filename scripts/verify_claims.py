@@ -97,27 +97,36 @@ def _intercept_qv(use_rep, budget_B):
 
 
 async def _one(name, intercept_builder, shapers, agents, pool, workload, rounds, backend,
-               rep_fn=None, persona=GREEDY_PERSONA) -> dict:
+               rep_fn=None, persona=GREEDY_PERSONA, persona_map=None,
+               pool_per_round=0, pool_cap=0) -> dict:
     state = SharedState()
     intercept = intercept_builder(state)
+    personas = dict(persona_map) if persona_map else {a: persona for a in agents}
     cfg = TaskConfig(run_id="verify", condition=name, agents=agents, workload=workload,
-                     pool=pool, max_rounds=rounds, shapers=shapers,
-                     personas={a: persona for a in agents})
+                     pool=pool, pool_per_round=pool_per_round, pool_cap=pool_cap,
+                     max_rounds=rounds, shapers=shapers, personas=personas)
     stream = EventStream("verify", name, 0)
     out = await run_resource_task(cfg, backend, intercept, stream, state)
     m = out["metrics"]
     # Phase 1 카스트 지표: 저평판 회복률 (rep_fn 미지정 → linear; beta arm은 자신의 λ로 측정)
     rec = recovery_rate(state.turn_log, len(agents), rep_fn or linear_reputation)
+    # 진단(재충전 QV용): 지정 욕심쟁이 "A"의 전달 점유율 + 최종 평판 — rep가중이 A를 throttle하나
+    delivered = m["delivered"]
+    tot_d = sum(delivered.values()) or 1
+    a_rep, _ = linear_reputation("A", state)
     return {"completion_rate": m["completion_rate"], "top_share": m["top_share"],
             "jain_attempted": m["jain_attempted"], "starved": len(m["starved"]),
-            "recovery": rec}
+            "recovery": rec,
+            "a_share": delivered.get("A", 0) / tot_d, "a_rep": a_rep}
 
 
 async def _seeded(name, intercept_builder, shapers, agents, pool, workload, rounds, backend, seeds,
-                  rep_fn=None, persona=GREEDY_PERSONA):
+                  rep_fn=None, persona=GREEDY_PERSONA, persona_map=None,
+                  pool_per_round=0, pool_cap=0):
     results = await asyncio.gather(*[
         _one(f"{name}#{i}", intercept_builder, shapers, agents, pool, workload, rounds, backend,
-             rep_fn=rep_fn, persona=persona)
+             rep_fn=rep_fn, persona=persona, persona_map=persona_map,
+             pool_per_round=pool_per_round, pool_cap=pool_cap)
         for i in range(seeds)], return_exceptions=True)
     eps = [r for r in results if not isinstance(r, BaseException)]
     if not eps:
@@ -135,7 +144,9 @@ async def _seeded(name, intercept_builder, shapers, agents, pool, workload, roun
             "rec_mean": _mean(rec_raw),
             "comp_raw": [e["completion_rate"] for e in eps],   # F3: raw per-replication arrays
             "top_raw": [e["top_share"] for e in eps],
-            "rec_raw": rec_raw}
+            "rec_raw": rec_raw,
+            "a_share_mean": _mean([e["a_share"] for e in eps]), "a_share_raw": [e["a_share"] for e in eps],
+            "a_rep_mean": _mean([e["a_rep"] for e in eps]), "a_rep_raw": [e["a_rep"] for e in eps]}
 
 
 # --- proper statistics on raw per-replication arrays (review F3) ---
@@ -811,12 +822,69 @@ async def run_attack(backend, seeds, agents, workload, rounds, model, temp):
             "cross_none_top_hoard_vs_finish_p": cross_top}
 
 
+async def run_qv_refill(backend, seeds, agents, workload, rounds, model, temp):
+    """재충전 풀(rate-limited stream)에서 평판가중 QV가 *의도한 방향*으로 작동하나 — 사용자 후속.
+    기존 고정 풀은 라운드0에 소진돼 다회가 죽고 모든 캡이 rep=1.0에서 결정됨 → qv_flat≡qv_rep.
+    여기선 (1) 풀을 매 라운드 R만큼 보충(다회를 실질화) + (2) 비대칭(A=사재기, B/C/D=공정)으로,
+    A가 과소비→rep↓→qv_rep에서 A의 캡이 점점 줄어드는지(throttle) 본다. 핵심: qv_rep이 qv_flat보다
+    독점(top)·욕심쟁이 점유(a_share)를 *더* 줄이나(=rep 작동), A의 최종 평판(a_rep)이 낮나."""
+    R, B, cap = 80, 50000.0, 160  # 보충 80/라운드, 적립상한 160. ★B를 크게 잡아야 rep효과가 드러남:
+                                  #   과소비한 A는 rep↓→cost=d²/rep 폭증→A의 예산만 빨리 소진(throttle),
+                                  #   공정한 B·C·D는 예산이 살아남아 계속 받음(=rep가 욕심쟁이만 가려냄)
+    workload = 400                # ★재충전 핵심: workload를 높여 A가 일찍 완료·퇴장하지 않고
+                                  #   8라운드 내내 경쟁 → 과소비로 rep이 진화할 시간을 줌(다회 실질화)
+    n = len(agents)
+    pmap = {agents[0]: HOARD_PERSONA}              # A = 사재기(직접 공격)
+    for a in agents[1:]:
+        pmap[a] = ""                              # B·C·D = 빈 페르소나(공정/중립)
+    print(f"\n=== 재충전 QV: 평판가중 작동 검정 ({model}, N={seeds}, {n}ag, R/round={R}, "
+          f"cap={cap}, B={B:.0f}, 비대칭 A=사재기) ===")
+    arm_specs = [
+        ("none",     _intercept_none,            []),
+        ("dumb_cap", _intercept_dumbcap,         []),
+        ("social",   _intercept_social,          []),
+        ("qv_flat",  _intercept_qv(False, B),    []),
+        ("qv_rep",   _intercept_qv(True, B),     []),
+    ]
+    arms = {}
+    for name, ib, sh in arm_specs:
+        a = await _seeded(name, ib, sh, agents, R, workload, rounds, backend, seeds,
+                          persona_map=pmap, pool_per_round=R, pool_cap=cap)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        a["ashare_boot"] = bootstrap_ci(a["a_share_raw"])
+        arms[name] = a
+        print(f"  {name:<10} top {a['top_mean']:.3f}  welfare {a['comp_mean']:.2f}  "
+              f"A점유 {a['a_share_mean']:.3f}  A평판 {a['a_rep_mean']:.2f}  n={a['n']}")
+
+    C = arms
+    contrasts = [
+        ("top qv_rep vs qv_flat (평판가중이 독점 더 줄이나)", C["qv_rep"]["top_raw"], C["qv_flat"]["top_raw"]),
+        ("A점유 qv_rep vs qv_flat (평판이 욕심쟁이 throttle?)", C["qv_rep"]["a_share_raw"], C["qv_flat"]["a_share_raw"]),
+        ("top qv_rep vs none", C["qv_rep"]["top_raw"], C["none"]["top_raw"]),
+        ("top qv_flat vs none", C["qv_flat"]["top_raw"], C["none"]["top_raw"]),
+        ("A점유 qv_rep vs none", C["qv_rep"]["a_share_raw"], C["none"]["a_share_raw"]),
+    ]
+    adjusted = holm([(lab, permutation_p(a, b)) for lab, a, b in contrasts])
+    print("\n--- 순열검정 + Holm ---")
+    for lab, p, padj, sig in adjusted:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<48} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "qv_refill",
+            "config": {"model": model, "temp": temp, "agents": n, "workload": workload,
+                       "rounds": rounds, "seeds": seeds, "pool_per_round": R, "pool_cap": cap,
+                       "budget_B": B, "asymmetric": "A=hoard, B/C/D=fair"},
+            "order": [k for k, *_ in arm_specs],
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                          for lab, p, padj, sig in adjusted]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
                              "phase_d", "phase_d_placebo", "caste_lambda", "elder", "qv",
-                             "unified", "litmus", "attack"])
+                             "unified", "litmus", "attack", "qv_refill"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -861,6 +929,8 @@ async def main():
         res = await run_litmus(backend, args.seeds, agents, pool, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "attack":
         res = await run_attack(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "qv_refill":
+        res = await run_qv_refill(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 

@@ -39,7 +39,9 @@ class TaskConfig:
     condition: str
     agents: list[str] = field(default_factory=lambda: ["A", "B", "C", "D"])
     workload: int = 150            # units each agent must accumulate to finish its subtask
-    pool: int = 600                # shared resource (commons)
+    pool: int = 600                # shared resource (commons) — initial allotment
+    pool_per_round: int = 0        # >0이면 *재충전형*(rate-limited stream): 매 라운드 시작에 보충
+    pool_cap: int = 0              # >0이면 재충전 후 잔량 상한(미사용분 무한 적립 방지)
     max_rounds: int = 8
     personas: dict[str, str] = field(default_factory=dict)
     shapers: list[str] = field(default_factory=list)  # 행동(입력)측 거버넌스 (제안③④·평판 되먹임)
@@ -140,6 +142,11 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
         return state.commons["token_budget_remaining"]
 
     for round_no in range(cfg.max_rounds):
+        if cfg.pool_per_round > 0 and round_no > 0:        # 재충전형: 매 라운드 시작에 보충
+            new_pool = pool_left() + cfg.pool_per_round
+            if cfg.pool_cap > 0:                            # 미사용분 무한 적립 방지(rate-limit)
+                new_pool = min(new_pool, cfg.pool_cap)
+            state.commons["token_budget_remaining"] = new_pool
         for agent in cfg.agents:
             if agent in done or pool_left() <= 0:
                 continue
@@ -187,7 +194,7 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
             outcome = "all_completed"
             stream.emit("decision", {"round": round_no, "text": "모든 에이전트가 과업 완료"})
             break
-        if pool_left() <= 0:
+        if cfg.pool_per_round <= 0 and pool_left() <= 0:    # 재충전형이면 풀 0이어도 다음 라운드 보충됨
             outcome = "exhausted"
             break
     else:
