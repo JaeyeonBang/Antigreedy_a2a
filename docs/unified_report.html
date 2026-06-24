@@ -94,7 +94,10 @@ ul{font-size:14.5px}li{margin:6px 0}
 0.25 보존. 희소는 거의 제로섬이라 *재분배는 되지만 후생을 만들어내진 못한다* —
 QV가 그나마 덜 나쁜 유일한 선택.</div>
 
-<h2>4. 방법론과 정직한 해석</h2>
+<h2>4. 심화 — 재충전 풀에서 '평판 가중 QV'는 작동하는가</h2>
+<p class="sub">앞 실험에서 <code>qv_flat</code>과 <code>qv_rep</code>은 차이가 없었다. 그게 <b>평판 가중이 쓸모없어서</b>인지 <b>설계가 평판을 못 살려서</b>인지 가르는 후속 실험이다. 고정 풀은 라운드 0에 소진돼 모든 캡이 평판=1.0에서 결정됐다 → 풀을 매 라운드 80 보충(재충전 스트림)해 다회를 살리고, <b>비대칭</b>(A=사재기, B·C·D=공정)으로 A만 과소비하게 했다 (N=30 · B=50000 · workload=400 · 욕심쟁이=A).</p><table><thead><tr><th>조건</th><th>기제</th><th>독점 top ↓</th><th>후생</th><th>A 점유 ↓</th><th>A 평판</th><th>판정</th></tr></thead><tbody><tr><td class="arm">none</td><td class="mech">무규제(기준)</td><td class="num">0.676</td><td class="num">0.25</td><td class="num">0.676</td><td class="num">0.10</td><td>A가 독식</td></tr><tr><td class="arm">dumb_cap</td><td class="mech">단순 캡</td><td class="num">0.398</td><td class="num">0.00</td><td class="num">0.398</td><td class="num">0.41</td><td>rep 무관</td></tr><tr><td class="arm">social</td><td class="mech">사회·평판</td><td class="num">0.348</td><td class="num">0.00</td><td class="num">0.348</td><td class="num">0.61</td><td>rep 기반</td></tr><tr><td class="arm">qv_flat</td><td class="mech">QV·무가중</td><td class="num">0.674</td><td class="num">0.25</td><td class="num">0.674</td><td class="num">0.10</td><td><span class="ns">≈ none (무효)</span></td></tr><tr><td class="arm">qv_rep</td><td class="mech">QV·평판가중</td><td class="num">0.480</td><td class="num">0.00</td><td class="num">0.480</td><td class="num">0.10</td><td><span class="w">▸ A를 억제</span></td></tr></tbody></table><div class="easy"><b>💡 결론: 평판 가중은 의도대로 작동한다 — 단, 다회가 살아있을 때만.</b> <code>qv_flat</code>은 평판을 안 봐 욕심쟁이 A를 <b>못 막는다</b>(A 점유 0.67 ≈ 무규제 0.68). <code>qv_rep</code>은 A의 과소비가 평판을 떨어뜨려 <code>비용=요청²/평판</code>을 폭증시켜 <b>A의 예산만 소진</b> → A 점유를 0.48로 <b>유의하게 억제</b>(vs flat, p_holm=0.0005). 공정한 B·C·D는 예산이 살아남는다. 즉 앞서 본 "flat≡rep"는 <b>메커니즘 실패가 아니라 다회가 죽은 설계 한계</b>였다 — 풀을 재충전해 다회를 살리면 평판 가중이 작동한다. (이 실험은 workload가 스트림보다 커 완료(welfare)는 0; 초점은 <i>평판이 욕심쟁이를 가려내는가</i>이다.)</div>
+
+<h2>5. 방법론과 정직한 해석</h2>
 <ul>
 <li><b>하나의 흐름.</b> 11개 메커니즘 전부 같은 모델(z-ai/glm-4.7-flash)·같은 n=['A', 'B', 'C', 'D']·같은 baseline에서,
 자원 희소성(풍요/희소)과 공격 유형(간접 빨리끝내기/직접 사재기)만 바꿔 비교했다.</li>

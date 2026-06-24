@@ -27,6 +27,7 @@ from scripts.verify_claims import permutation_p, holm  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 U_SRC = ROOT / "docs" / "verify_unified.json"
 A_SRC = ROOT / "docs" / "verify_attack_full.json"
+Q_SRC = ROOT / "docs" / "verify_qv_refill.json"   # 재충전 풀 평판가중 검정(심화 §4)
 OUT = ROOT / "docs" / "unified_report.html"
 
 # 메커니즘 순서 + 계열(proactive/reactive/입력/대조) — proactive vs reactive 서사를 표가 직접 보이게
@@ -105,6 +106,43 @@ def master_table(regimes, key, lower_better, caption):
     return (f'<table class="master"><thead><tr><th>메커니즘</th><th>계열 · 기제</th>{head}</tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>'
             f'<p class="cap">{caption}</p>')
+
+
+def qv_refill_section():
+    """재충전 풀 평판가중 검정(verify_qv_refill.json) → HTML 섹션."""
+    if not Q_SRC.exists():
+        return '<p class="sub">verify_qv_refill.json 미생성 — <code>verify_claims.py qv_refill</code> 먼저 실행.</p>'
+    q = json.loads(Q_SRC.read_text())
+    A, cfg = q["arms"], q["config"]
+    sig = {c["label"].split(" (")[0]: c for c in q["contrasts"]}
+
+    def srow(name, label, note):
+        a = A[name]
+        return (f'<tr><td class="arm">{name}</td><td class="mech">{label}</td>'
+                f'<td class="num">{a["top_mean"]:.3f}</td><td class="num">{a["comp_mean"]:.2f}</td>'
+                f'<td class="num">{a["a_share_mean"]:.3f}</td><td class="num">{a["a_rep_mean"]:.2f}</td>'
+                f'<td>{note}</td></tr>')
+    rows = "".join([
+        srow("none", "무규제(기준)", "A가 독식"),
+        srow("dumb_cap", "단순 캡", "rep 무관"),
+        srow("social", "사회·평판", "rep 기반"),
+        srow("qv_flat", "QV·무가중", '<span class="ns">≈ none (무효)</span>'),
+        srow("qv_rep", "QV·평판가중", '<span class="w">▸ A를 억제</span>'),
+    ])
+    p = sig.get("A점유 qv_rep vs qv_flat", {}).get("p_holm", 1.0)
+    return (f'<p class="sub">앞 실험에서 <code>qv_flat</code>과 <code>qv_rep</code>은 차이가 없었다. 그게 '
+            f'<b>평판 가중이 쓸모없어서</b>인지 <b>설계가 평판을 못 살려서</b>인지 가르는 후속 실험이다. '
+            f'고정 풀은 라운드 0에 소진돼 모든 캡이 평판=1.0에서 결정됐다 → 풀을 매 라운드 {cfg["pool_per_round"]} '
+            f'보충(재충전 스트림)해 다회를 살리고, <b>비대칭</b>(A=사재기, B·C·D=공정)으로 A만 과소비하게 했다 '
+            f'(N={cfg["seeds"]} · B={int(cfg["budget_B"])} · workload={cfg["workload"]} · 욕심쟁이=A).</p>'
+            '<table><thead><tr><th>조건</th><th>기제</th><th>독점 top ↓</th><th>후생</th>'
+            '<th>A 점유 ↓</th><th>A 평판</th><th>판정</th></tr></thead><tbody>' + rows + '</tbody></table>'
+            f'<div class="easy"><b>💡 결론: 평판 가중은 의도대로 작동한다 — 단, 다회가 살아있을 때만.</b> '
+            f'<code>qv_flat</code>은 평판을 안 봐 욕심쟁이 A를 <b>못 막는다</b>(A 점유 {A["qv_flat"]["a_share_mean"]:.2f} ≈ 무규제 {A["none"]["a_share_mean"]:.2f}). '
+            f'<code>qv_rep</code>은 A의 과소비가 평판을 떨어뜨려 <code>비용=요청²/평판</code>을 폭증시켜 <b>A의 예산만 소진</b> → '
+            f'A 점유를 {A["qv_rep"]["a_share_mean"]:.2f}로 <b>유의하게 억제</b>(vs flat, p_holm={p:.4f}). 공정한 B·C·D는 예산이 살아남는다. '
+            f'즉 앞서 본 "flat≡rep"는 <b>메커니즘 실패가 아니라 다회가 죽은 설계 한계</b>였다 — 풀을 재충전해 다회를 살리면 평판 가중이 작동한다. '
+            f'(이 실험은 workload가 스트림보다 커 완료(welfare)는 0; 초점은 <i>평판이 욕심쟁이를 가려내는가</i>이다.)</div>')
 
 
 def build():
@@ -216,7 +254,10 @@ ul{{font-size:14.5px}}li{{margin:6px 0}}
 {wl(R['scarce_hoard'],'qv_rep'):.2f} 보존. 희소는 거의 제로섬이라 *재분배는 되지만 후생을 만들어내진 못한다* —
 QV가 그나마 덜 나쁜 유일한 선택.</div>
 
-<h2>4. 방법론과 정직한 해석</h2>
+<h2>4. 심화 — 재충전 풀에서 '평판 가중 QV'는 작동하는가</h2>
+{qv_refill_section()}
+
+<h2>5. 방법론과 정직한 해석</h2>
 <ul>
 <li><b>하나의 흐름.</b> 11개 메커니즘 전부 같은 모델({_esc(model)})·같은 n={ucfg['agents']}·같은 baseline에서,
 자원 희소성(풍요/희소)과 공격 유형(간접 빨리끝내기/직접 사재기)만 바꿔 비교했다.</li>
