@@ -114,10 +114,15 @@ async def _one(name, intercept_builder, shapers, agents, pool, workload, rounds,
     delivered = m["delivered"]
     tot_d = sum(delivered.values()) or 1
     a_rep, _ = linear_reputation("A", state)
+    # 라운드 동역학(선그래프용): A의 라운드별 전달량 + 그 라운드 전체 전달량 (rounds 길이로 패딩)
+    rds = out.get("round_delivered", [])
+    a_round = [(rds[i].get("A", 0) if i < len(rds) else 0) for i in range(rounds)]
+    tot_round = [(sum(rds[i].values()) if i < len(rds) else 0) for i in range(rounds)]
     return {"completion_rate": m["completion_rate"], "top_share": m["top_share"],
             "jain_attempted": m["jain_attempted"], "starved": len(m["starved"]),
             "recovery": rec,
-            "a_share": delivered.get("A", 0) / tot_d, "a_rep": a_rep}
+            "a_share": delivered.get("A", 0) / tot_d, "a_rep": a_rep,
+            "a_round": a_round, "tot_round": tot_round}
 
 
 async def _seeded(name, intercept_builder, shapers, agents, pool, workload, rounds, backend, seeds,
@@ -146,7 +151,9 @@ async def _seeded(name, intercept_builder, shapers, agents, pool, workload, roun
             "top_raw": [e["top_share"] for e in eps],
             "rec_raw": rec_raw,
             "a_share_mean": _mean([e["a_share"] for e in eps]), "a_share_raw": [e["a_share"] for e in eps],
-            "a_rep_mean": _mean([e["a_rep"] for e in eps]), "a_rep_raw": [e["a_rep"] for e in eps]}
+            "a_rep_mean": _mean([e["a_rep"] for e in eps]), "a_rep_raw": [e["a_rep"] for e in eps],
+            "a_round_mean": [_mean(c) for c in zip(*[e["a_round"] for e in eps])],     # 라운드별 A 전달(시드평균)
+            "tot_round_mean": [_mean(c) for c in zip(*[e["tot_round"] for e in eps])]}  # 라운드별 전체 전달
 
 
 # --- proper statistics on raw per-replication arrays (review F3) ---

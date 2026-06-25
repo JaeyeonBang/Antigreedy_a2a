@@ -108,6 +108,40 @@ def master_table(regimes, key, lower_better, caption):
             f'<p class="cap">{caption}</p>')
 
 
+def qv_round_chart(A):
+    """라운드별 A(욕심쟁이) 점유 선그래프 — none/qv_flat/qv_rep. rep가 라운드마다 A를 어떻게 누르나."""
+    if "a_round_mean" not in A.get("qv_rep", {}):
+        return ""
+    plot = [("none", "#9a958a", "무규제"), ("qv_flat", "#c08a2a", "QV·무가중"),
+            ("qv_rep", "#2e7d4f", "QV·평판가중(rep)")]
+    R = len(A["qv_rep"]["a_round_mean"])
+    W, H, pl, pr, pt, pb = 640, 300, 48, 150, 18, 42
+    pw, ph = W - pl - pr, H - pt - pb
+    fx = lambda i: pl + (i / max(1, R - 1)) * pw
+    fy = lambda v: pt + (1 - v) * ph
+    s = [f'<svg viewBox="0 0 {W} {H}" class="chart" role="img" aria-label="라운드별 A 점유">']
+    for g in (0, .25, .5, .75, 1.0):
+        y = fy(g)
+        s.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{pl+pw}" y2="{y:.1f}" stroke="#ece8df"/>')
+        s.append(f'<text x="{pl-6}" y="{y+3:.1f}" text-anchor="end" font-size="10" fill="#a8a296">{g:.2f}</text>')
+    for i in range(R):
+        s.append(f'<text x="{fx(i):.1f}" y="{H-pb+16}" text-anchor="middle" font-size="10" fill="#8a8478">{i+1}</text>')
+    s.append(f'<text x="{pl+pw/2}" y="{H-6}" text-anchor="middle" font-size="11" fill="#5d5a52">라운드(round) →</text>')
+    s.append(f'<text x="{pl-30}" y="{pt+ph/2}" text-anchor="middle" font-size="11" fill="#5d5a52" transform="rotate(-90 {pl-30} {pt+ph/2})">A의 그 라운드 점유율</text>')
+    for j, (nm, col, lab) in enumerate(plot):
+        ar, tr = A[nm]["a_round_mean"], A[nm]["tot_round_mean"]
+        pts = " ".join(f"{fx(i):.1f},{fy(ar[i]/tr[i] if tr[i] > 0 else 0):.1f}" for i in range(R))
+        s.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2.6"/>')
+        for i in range(R):
+            v = ar[i] / tr[i] if tr[i] > 0 else 0
+            s.append(f'<circle cx="{fx(i):.1f}" cy="{fy(v):.1f}" r="2.6" fill="{col}"/>')
+        ly = pt + 14 + j * 22
+        s.append(f'<line x1="{pl+pw+14}" y1="{ly}" x2="{pl+pw+38}" y2="{ly}" stroke="{col}" stroke-width="2.6"/>')
+        s.append(f'<text x="{pl+pw+43}" y="{ly+4}" font-size="11.5" fill="#3a382f">{lab}</text>')
+    s.append("</svg>")
+    return "".join(s)
+
+
 def qv_refill_section():
     """재충전 풀 평판가중 검정(verify_qv_refill.json) → HTML 섹션."""
     if not Q_SRC.exists():
@@ -137,6 +171,9 @@ def qv_refill_section():
             f'(N={cfg["seeds"]} · B={int(cfg["budget_B"])} · workload={cfg["workload"]} · 욕심쟁이=A).</p>'
             '<table><thead><tr><th>조건</th><th>기제</th><th>독점 top ↓</th><th>후생</th>'
             '<th>A 점유 ↓</th><th>A 평판</th><th>판정</th></tr></thead><tbody>' + rows + '</tbody></table>'
+            '<h3 style="font-family:\'Crimson Pro\',serif;font-size:16px;margin:22px 0 4px">라운드별 동역학 — 욕심쟁이 A의 점유가 어떻게 변하나</h3>'
+            + qv_round_chart(A)
+            + '<p class="cap">라운드 1에선 아직 이력이 없어 모두 평판=1.0 → A가 독식한다. <b>qv_rep만</b> 다음 라운드부터 A의 과소비가 평판을 떨어뜨려 비용이 폭증, A의 점유가 *계단처럼 내려간다*(throttle). <code>qv_flat</code>·무규제는 A를 안 눌러 계속 독식(예산 소진 전까지).</p>'
             f'<div class="easy"><b>💡 결론: 평판 가중은 의도대로 작동한다 — 단, 다회가 살아있을 때만.</b> '
             f'<code>qv_flat</code>은 평판을 안 봐 욕심쟁이 A를 <b>못 막는다</b>(A 점유 {A["qv_flat"]["a_share_mean"]:.2f} ≈ 무규제 {A["none"]["a_share_mean"]:.2f}). '
             f'<code>qv_rep</code>은 A의 과소비가 평판을 떨어뜨려 <code>비용=요청²/평판</code>을 폭증시켜 <b>A의 예산만 소진</b> → '

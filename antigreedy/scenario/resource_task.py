@@ -137,6 +137,7 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
     requested_tot = {a: 0 for a in cfg.agents}
     done: list[str] = []
     outcome = "exhausted"
+    round_delivered: list[dict] = []   # 라운드별 {agent: 그 라운드 전달량} — 선그래프(라운드 동역학)용
 
     def pool_left() -> int:
         return state.commons["token_budget_remaining"]
@@ -147,6 +148,7 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
             if cfg.pool_cap > 0:                            # 미사용분 무한 적립 방지(rate-limit)
                 new_pool = min(new_pool, cfg.pool_cap)
             state.commons["token_budget_remaining"] = new_pool
+        rd = {a: 0 for a in cfg.agents}                    # 이 라운드 전달량
         for agent in cfg.agents:
             if agent in done or pool_left() <= 0:
                 continue
@@ -176,6 +178,7 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
             granted = max(0, min(granted, pool_left()))      # 풀을 넘겨 줄 수는 없음
             state.record_turn(agent, requested, granted)      # 단일 기록자
             progress[agent] += granted
+            rd[agent] += granted                               # 라운드별 전달량 누적
             completed = progress[agent] >= cfg.workload
             if completed and agent not in done:
                 done.append(agent)
@@ -190,6 +193,7 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
                 "prompt": prompt[:4000], "original_text": raw[:4000],
                 "delivered_text": f"granted {granted}/{requested} units" if granted else "(요청 차단)",
             }, policy_set_hash=psh)
+        round_delivered.append(rd)                         # 이 라운드 종료 → 기록
         if len(done) == n:
             outcome = "all_completed"
             stream.emit("decision", {"round": round_no, "text": "모든 에이전트가 과업 완료"})
@@ -214,4 +218,4 @@ async def run_resource_task(cfg: TaskConfig, backend: LLMBackend,
     stream.emit("episode_end", {"outcome": outcome, "commons_left": pool_left(),
                                 "metrics": metrics}, policy_set_hash=psh)
     return {"outcome": outcome, "completion_rate": metrics["completion_rate"],
-            "starved": starved, "metrics": metrics}
+            "starved": starved, "metrics": metrics, "round_delivered": round_delivered}
