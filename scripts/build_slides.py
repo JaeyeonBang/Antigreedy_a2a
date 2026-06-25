@@ -241,6 +241,7 @@ def slides():
     # 다회(재충전 풀) 재검정 데이터 — 'proactive만'은 fixed-pool artifact임을 보이는 정정
     AR = json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["arms"]
     ARmeta = json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["meta"]
+    ARcfg = json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["config"]
     arsig = {}
     for c in json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["contrasts_ashare"]:
         arsig[c["label"].replace("A점유 ", "").split(" vs none")[0].strip()] = c["sig"]
@@ -268,6 +269,7 @@ def slides():
 <div class="two">
 <div>
 <p class="lead">{cfg['agents']}개 에이전트가 각자 과업을 갖고 <b>하나의 공유 자원(컴퓨트 풀 {cfg['pool']})</b>을 두고 경쟁한다. 탐욕 = 풀을 선점해 남을 굶기는 것.</p>
+<div class="easy"><span class="lab">⚠️ 실험 조건 명시</span> <b>본 발표의 핵심 실험(통합 11-arm·Phase 1~3·시금석)은 모두 <u>사실상 단일라운드(single-round)</u></b>다 — 풀 {cfg['pool']}단위를 <b>시작에 단 한 번만 배정</b>하고 재충전하지 않아(<code>pool_per_round=0</code>), 욕심쟁이가 라운드 0에 풀을 비우면 즉시 고갈돼 <b>한 라운드로 끝난다</b> → 사후(reactive) 거버넌스가 반응할 다음 라운드가 없다. <b>진짜 다회(multi-round, 재충전)는 §4 재검정에서만</b> 성립한다.</div>
 <div class="persona"><div class="pl">본 발표의 greedy agent = 아래 페르소나(persona = 모델에 부여한 역할·성격 설정)를 받은 실제 LLM</div>
 <code>"{persona}"</code>
 <div class="pt">(경쟁적이며, 남보다 먼저 끝내면 큰 보너스 — 공정함보다 먼저 끝내는 게 더 중요.)</div></div>
@@ -524,7 +526,9 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 <li><b>평판 갱신</b> — <code>turn_log</code>에서 평판(reputation)을 *다시 계산* → 다음 라운드 판정에 반영</li>
 </ol>
 <div class="easy"><span class="lab">💡 왜 다회가 핵심인가</span> 평판·LLM 판관 같은 <b>사후(reactive)</b> 거버넌스는 ⑤에서 *이력이 쌓여야* 작동한다 →
-<b>다회가 살아있어야</b> 평가된다. <b>고정 풀</b>은 욕심쟁이가 라운드 0에 다 비워 사실상 1라운드(reactive 무력) · <b>재충전 풀</b>은 매 라운드 보충해 다회를 유지(reactive 작동).</div>
+<b>다회가 살아있어야</b> 평가된다.<br>
+• <b>단일라운드(single-round)</b> — 공유 풀을 <b>시작에 단 한 번</b> {cfg['pool']}단위 배정하고 이후 보충 없어(<code>pool_per_round=0</code>), 욕심쟁이가 라운드 0에 다 비우면 풀=0으로 조기 종료 → <b>한 라운드로 끝나</b> reactive가 반응할 다음 라운드가 없다.<br>
+• <b>다회(multi-round, 재충전)</b> — 매 라운드 시작에 <b>+{ARcfg['pool_per_round']}단위 보충</b>(rate-limited stream)·적립 상한 {ARcfg['pool_cap']}, workload를 {ARcfg['workload']}로 높여 욕심쟁이가 일찍 못 빠지게 → <b>{cfg['rounds']}라운드 내내 경쟁 유지</b>(비대칭: A=사재기, B·C·D=공정). reactive가 비로소 작동한다.</div>
 </div>""")
 
     # 20 — ③ 다회 재검정: 정정 (reactive도 작동)
@@ -540,8 +544,8 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 <div class="snum">결과 · ③ 다회(재충전)로 재검정 — 'proactive만'은 artifact였다</div>
 <h2>다회가 살아나면 <span class="hl">reactive 평판·망각·판관도 모두 작동</span></h2>
 <table><thead><tr><th>조건</th><th>계열</th><th>A 점유 ↓</th><th>A 평판</th><th>판정(vs none)</th></tr></thead><tbody>{arrows}</tbody></table>
-<div class="easy"><span class="lab">💡 정정</span> 고정 풀(1라운드)에선 reactive가 무력해 *보였지만*(artifact), 다회에선 <code>social·ost_beta·ledger_elder</code> 전부 욕심쟁이 A를 유의하게 억제({n_ar_work}/7).
-고정 풀서 *최악(역효과)*이던 <b>LLM 판관(ledger_elder)이 재충전선 최고</b>(A 점유 {ASH('ledger_elder'):.2f}). 실패는 평판/이력을 안 쓰는 <code>qv_flat</code>·<code>neutral_filler</code>뿐.
+<div class="easy"><span class="lab">💡 정정</span> 단일라운드에선 reactive가 무력해 *보였지만*(artifact), 다회에선 <code>social·ost_beta·ledger_elder</code> 전부 욕심쟁이 A를 유의하게 억제({n_ar_work}/7).
+단일라운드서 *최악(역효과)*이던 <b>LLM 판관(ledger_elder)이 재충전선 최고</b>(A 점유 {ASH('ledger_elder'):.2f}). 실패는 평판/이력을 안 쓰는 <code>qv_flat</code>·<code>neutral_filler</code>뿐.
 → 진짜 구분은 "proactive vs reactive"가 아니라 <b>"평판/이력 또는 per-round 캡을 쓰는가"</b>.</div>
 </div>""")
 
@@ -561,7 +565,7 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 <ul class="big">
 <li><b>풍요엔 불필요.</b> 독점이 안 생겨 할 일 없음 — 겉보기 효과는 길이 아티팩트(0/10)</li>
 <li><b>희소+공격엔 유효.</b> 거버넌스가 완전 독점을 막고 길이 대조군을 이김</li>
-<li><b>다회가 핵심.</b> 고정 풀(1라운드)의 "proactive만 작동"은 artifact — <b>다회(재충전)에선 평판·망각·LLM 판관 전부 작동</b></li>
+<li><b>다회가 핵심.</b> 단일라운드의 "proactive만 작동"은 artifact — <b>다회(재충전)에선 평판·망각·LLM 판관 전부 작동</b></li>
 <li><b>진짜 구분</b>은 proactive/reactive가 아니라 <b>"평판·이력 또는 per-round 캡을 쓰는가"</b>(qv_flat·filler만 실패)</li>
 <li><b>후생 트레이드오프.</b> 단순 캡은 공정성을 전원실패로 사고, QV만 균형 항해</li>
 </ul>
