@@ -163,6 +163,36 @@ def decomp_svg(filler_top, anchor_top, rep_top, none_top):
 </svg>"""
 
 
+def round_lines_svg(arms, plot, w=860, h=300):
+    """라운드별 A(욕심쟁이) 점유 선그래프 — plot=[(arm,color,label)]. 슬라이드용."""
+    p0 = plot[0][0]
+    R = len(arms[p0]["a_round_mean"])
+    pl, pr, pt, pb = 56, 170, 18, 46
+    pw, ph = w - pl - pr, h - pt - pb
+    fx = lambda i: pl + (i / max(1, R - 1)) * pw
+    fy = lambda v: pt + (1 - v) * ph
+    s = [f'<svg viewBox="0 0 {w} {h}" class="chart" role="img" aria-label="라운드별 A 점유">']
+    for g in (0, .25, .5, .75, 1.0):
+        y = fy(g)
+        s.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{pl+pw}" y2="{y:.1f}" stroke="#ece8df"/>')
+        s.append(f'<text x="{pl-8}" y="{y+4:.1f}" text-anchor="end" font-size="11" fill="#a8a296">{g:.2f}</text>')
+    for i in range(R):
+        s.append(f'<text x="{fx(i):.1f}" y="{h-pb+18}" text-anchor="middle" font-size="11" fill="#8a8478">{i+1}</text>')
+    s.append(f'<text x="{pl+pw/2}" y="{h-6}" text-anchor="middle" font-size="12" fill="#5d5a52">라운드(round) →</text>')
+    for j, (nm, col, lab) in enumerate(plot):
+        ar, tr = arms[nm]["a_round_mean"], arms[nm]["tot_round_mean"]
+        pts = " ".join(f"{fx(i):.1f},{fy(ar[i]/tr[i] if tr[i] > 0 else 0):.1f}" for i in range(R))
+        s.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2.8"/>')
+        for i in range(R):
+            v = ar[i] / tr[i] if tr[i] > 0 else 0
+            s.append(f'<circle cx="{fx(i):.1f}" cy="{fy(v):.1f}" r="3" fill="{col}"/>')
+        ly = pt + 16 + j * 24
+        s.append(f'<line x1="{pl+pw+16}" y1="{ly}" x2="{pl+pw+42}" y2="{ly}" stroke="{col}" stroke-width="2.8"/>')
+        s.append(f'<text x="{pl+pw+48}" y="{ly+4}" font-size="12.5" fill="#3a382f">{lab}</text>')
+    s.append("</svg>")
+    return "".join(s)
+
+
 def slides():
     d = json.loads(DATA.read_text())
     arms, order, meta, cfg = d["arms"], d["order"], d["meta"], d["config"]
@@ -207,6 +237,15 @@ def slides():
     TFv = lambda a: F[a]["top_mean"]; WFv = lambda a: F[a]["comp_mean"]
     sig_h = {a: (a in hoard_win, 0.0) for a in aorder}   # hspectrum용 ▸(filler 이김) 마커
     sig_f = {a: (a in finish_win, 0.0) for a in aorder}
+
+    # 다회(재충전 풀) 재검정 데이터 — 'proactive만'은 fixed-pool artifact임을 보이는 정정
+    AR = json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["arms"]
+    ARmeta = json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["meta"]
+    arsig = {}
+    for c in json.loads((ROOT / "docs" / "verify_attack_refill.json").read_text())["contrasts_ashare"]:
+        arsig[c["label"].replace("A점유 ", "").split(" vs none")[0].strip()] = c["sig"]
+    ASH = lambda a: AR[a]["a_share_mean"]; AREP = lambda a: AR[a]["a_rep_mean"]
+    n_ar_work = sum(1 for k in AR if k != "none" and arsig.get(k))
 
     S = []
     persona = ("You are competitive and you get a large BONUS if you finish your subtask "
@@ -473,15 +512,57 @@ turn_log를 <b>매번 다시 계산</b>한 0~1 점수(저장 안 함·recompute-
 <code>qv_flat·qv_rep</code>만 독점↓ + 무규제 수준 welfare({WHv('qv_rep'):.2f}) 보존(초록). 점선=무규제({WHv('none'):.2f}) · 희소는 제로섬이라 재분배는 돼도 후생을 *만들어내진* 못한다.</div>
 </div>""")
 
-    # 18 — 조건의존 결론
+    # 19 — 방법론: 다회(multi-round) 과정 상세
+    S.append(f"""<div class="s">
+<div class="snum">방법론 · 한 에피소드는 어떻게 도나 (다회 = multi-round)</div>
+<h2>실험은 <span class="hl">매 에피소드 {cfg['rounds']}라운드</span>를 돈다 — 라운드마다 요청·집행·평판 갱신</h2>
+<ol class="pres">
+<li><b>라운드 시작</b> — (재충전형이면) 공유 풀에 R단위 자원 보충(rate-limited stream)</li>
+<li><b>요청</b> — 에이전트가 A→B→C→D 순서로 "이번 라운드 몇 단위 쓸지" REQUEST</li>
+<li><b>집행</b> — 거버넌스가 그 요청을 가로채(intercept) <b>ALLOW/DENY/MODIFY(cap)</b> 판정</li>
+<li><b>기록</b> — 부여(granted)만큼 과제 진행 + 공유 풀 감소 + <code>turn_log</code>에 기록</li>
+<li><b>평판 갱신</b> — <code>turn_log</code>에서 평판(reputation)을 *다시 계산* → 다음 라운드 판정에 반영</li>
+</ol>
+<div class="easy"><span class="lab">💡 왜 다회가 핵심인가</span> 평판·LLM 판관 같은 <b>사후(reactive)</b> 거버넌스는 ⑤에서 *이력이 쌓여야* 작동한다 →
+<b>다회가 살아있어야</b> 평가된다. <b>고정 풀</b>은 욕심쟁이가 라운드 0에 다 비워 사실상 1라운드(reactive 무력) · <b>재충전 풀</b>은 매 라운드 보충해 다회를 유지(reactive 작동).</div>
+</div>""")
+
+    # 20 — ③ 다회 재검정: 정정 (reactive도 작동)
+    arorder = ["none", "neutral_filler", "dumb_cap", "social", "ost_beta", "ledger_elder", "qv_flat", "qv_rep"]
+    arrows = ""
+    for nm in arorder:
+        cls = ARmeta[nm]["cls"]
+        mk = ("기준" if nm == "none" else
+              '<span class="sig">▸ 작동</span>' if arsig.get(nm) else '<span class="badge">✗ 실패</span>')
+        arrows += (f'<tr><td><code>{nm}</code></td><td>{cls}</td>'
+                   f'<td class="num">{ASH(nm):.3f}</td><td class="num">{AREP(nm):.2f}</td><td>{mk}</td></tr>')
+    S.append(f"""<div class="s">
+<div class="snum">결과 · ③ 다회(재충전)로 재검정 — 'proactive만'은 artifact였다</div>
+<h2>다회가 살아나면 <span class="hl">reactive 평판·망각·판관도 모두 작동</span></h2>
+<table><thead><tr><th>조건</th><th>계열</th><th>A 점유 ↓</th><th>A 평판</th><th>판정(vs none)</th></tr></thead><tbody>{arrows}</tbody></table>
+<div class="easy"><span class="lab">💡 정정</span> 고정 풀(1라운드)에선 reactive가 무력해 *보였지만*(artifact), 다회에선 <code>social·ost_beta·ledger_elder</code> 전부 욕심쟁이 A를 유의하게 억제({n_ar_work}/7).
+고정 풀서 *최악(역효과)*이던 <b>LLM 판관(ledger_elder)이 재충전선 최고</b>(A 점유 {ASH('ledger_elder'):.2f}). 실패는 평판/이력을 안 쓰는 <code>qv_flat</code>·<code>neutral_filler</code>뿐.
+→ 진짜 구분은 "proactive vs reactive"가 아니라 <b>"평판/이력 또는 per-round 캡을 쓰는가"</b>.</div>
+</div>""")
+
+    # 21 — ③ 라운드별 동역학 선그래프
+    S.append(f"""<div class="s">
+<div class="snum">결과 · ③ 라운드별 동역학 — 누가 욕심쟁이 A를 어떻게 누르나</div>
+<h2>라운드가 갈수록 — <span class="hl">평판·판관이 욕심쟁이 A를 끌어내린다</span></h2>
+{round_lines_svg(AR, [("none", "#9a958a", "무규제"), ("qv_flat", "#c08a2a", "QV·무가중(실패)"), ("social", "#2f5d9e", "평판 social"), ("ledger_elder", "#b23b3b", "LLM 판관 elder"), ("qv_rep", "#2f7d4f", "QV·평판가중")])}
+<div class="easy"><span class="lab">💡</span> <b>무규제·qv_flat</b>: A가 끝까지 독식(라운드 6에 과제 완료·퇴장→0). <b>평판(파랑)·LLM 판관(빨강)</b>: 라운드 2부터 A를 끌어내림 — 특히 <b>판관은 A를 거의 0으로 짓누른다</b>. 평판가중 QV(초록)도 A를 ~0.4로 억제. *라운드별로 평판이 쌓이며 작동하는* 모습이 한눈에 보인다.</div>
+</div>""")
+
+    # 22 — 조건의존 결론
     S.append(f"""<div class="s">
 <div class="snum">해석 · 조건의존 결론</div>
-<h2>거버넌스 효과는 <span class="hl">희소성 × 공격 유형</span>에 달렸다</h2>
+<h2>거버넌스 효과는 <span class="hl">희소성 × 공격 유형 × 다회 동역학</span>에 달렸다</h2>
 <div class="two">
 <ul class="big">
 <li><b>풍요엔 불필요.</b> 독점이 안 생겨 할 일 없음 — 겉보기 효과는 길이 아티팩트(0/10)</li>
-<li><b>희소+공격엔 유효.</b> proactive 캡(dumb_cap·social·QV)이 완전 독점을 막고 filler를 이김</li>
-<li><b>proactive &gt; reactive.</b> 첫수 사재기꾼엔 이력 필요한 평판·판관·입력 프레이밍 무력</li>
+<li><b>희소+공격엔 유효.</b> 거버넌스가 완전 독점을 막고 길이 대조군을 이김</li>
+<li><b>다회가 핵심.</b> 고정 풀(1라운드)의 "proactive만 작동"은 artifact — <b>다회(재충전)에선 평판·망각·LLM 판관 전부 작동</b></li>
+<li><b>진짜 구분</b>은 proactive/reactive가 아니라 <b>"평판·이력 또는 per-round 캡을 쓰는가"</b>(qv_flat·filler만 실패)</li>
 <li><b>후생 트레이드오프.</b> 단순 캡은 공정성을 전원실패로 사고, QV만 균형 항해</li>
 </ul>
 <ul class="lim">

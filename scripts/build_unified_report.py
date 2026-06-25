@@ -27,7 +27,8 @@ from scripts.verify_claims import permutation_p, holm  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 U_SRC = ROOT / "docs" / "verify_unified.json"
 A_SRC = ROOT / "docs" / "verify_attack_full.json"
-Q_SRC = ROOT / "docs" / "verify_qv_refill.json"   # 재충전 풀 평판가중 검정(심화 §4)
+Q_SRC = ROOT / "docs" / "verify_qv_refill.json"        # 재충전 풀 평판가중 검정(심화 §4)
+AR_SRC = ROOT / "docs" / "verify_attack_refill.json"   # 재충전 풀 전체 8조건 재검정(심화 §4)
 OUT = ROOT / "docs" / "unified_report.html"
 
 # 메커니즘 순서 + 계열(proactive/reactive/입력/대조) — proactive vs reactive 서사를 표가 직접 보이게
@@ -108,13 +109,12 @@ def master_table(regimes, key, lower_better, caption):
             f'<p class="cap">{caption}</p>')
 
 
-def qv_round_chart(A):
-    """라운드별 A(욕심쟁이) 점유 선그래프 — none/qv_flat/qv_rep. rep가 라운드마다 A를 어떻게 누르나."""
-    if "a_round_mean" not in A.get("qv_rep", {}):
+def qv_round_chart(A, plot):
+    """라운드별 A(욕심쟁이) 점유 선그래프. plot=[(arm,color,label),...]."""
+    p0 = plot[0][0]
+    if not A.get(p0, {}).get("a_round_mean"):
         return ""
-    plot = [("none", "#9a958a", "무규제"), ("qv_flat", "#c08a2a", "QV·무가중"),
-            ("qv_rep", "#2e7d4f", "QV·평판가중(rep)")]
-    R = len(A["qv_rep"]["a_round_mean"])
+    R = len(A[p0]["a_round_mean"])
     W, H, pl, pr, pt, pb = 640, 300, 48, 150, 18, 42
     pw, ph = W - pl - pr, H - pt - pb
     fx = lambda i: pl + (i / max(1, R - 1)) * pw
@@ -172,7 +172,8 @@ def qv_refill_section():
             '<table><thead><tr><th>조건</th><th>기제</th><th>독점 top ↓</th><th>후생</th>'
             '<th>A 점유 ↓</th><th>A 평판</th><th>판정</th></tr></thead><tbody>' + rows + '</tbody></table>'
             '<h3 style="font-family:\'Crimson Pro\',serif;font-size:16px;margin:22px 0 4px">라운드별 동역학 — 욕심쟁이 A의 점유가 어떻게 변하나</h3>'
-            + qv_round_chart(A)
+            + qv_round_chart(A, [("none", "#9a958a", "무규제"), ("qv_flat", "#c08a2a", "QV·무가중"),
+                                 ("qv_rep", "#2e7d4f", "QV·평판가중(rep)")])
             + '<p class="cap">라운드 1에선 아직 이력이 없어 모두 평판=1.0 → A가 독식한다. <b>qv_rep만</b> 다음 라운드부터 A의 과소비가 평판을 떨어뜨려 비용이 폭증, A의 점유가 *계단처럼 내려간다*(throttle). <code>qv_flat</code>·무규제는 A를 안 눌러 계속 독식(예산 소진 전까지).</p>'
             f'<div class="easy"><b>💡 결론: 평판 가중은 의도대로 작동한다 — 단, 다회가 살아있을 때만.</b> '
             f'<code>qv_flat</code>은 평판을 안 봐 욕심쟁이 A를 <b>못 막는다</b>(A 점유 {A["qv_flat"]["a_share_mean"]:.2f} ≈ 무규제 {A["none"]["a_share_mean"]:.2f}). '
@@ -180,6 +181,47 @@ def qv_refill_section():
             f'A 점유를 {A["qv_rep"]["a_share_mean"]:.2f}로 <b>유의하게 억제</b>(vs flat, p_holm={p:.4f}). 공정한 B·C·D는 예산이 살아남는다. '
             f'즉 앞서 본 "flat≡rep"는 <b>메커니즘 실패가 아니라 다회가 죽은 설계 한계</b>였다 — 풀을 재충전해 다회를 살리면 평판 가중이 작동한다. '
             f'(이 실험은 workload가 스트림보다 커 완료(welfare)는 0; 초점은 <i>평판이 욕심쟁이를 가려내는가</i>이다.)</div>')
+
+
+def attack_refill_section():
+    """재충전 풀에서 8조건 전체 재검정(verify_attack_refill.json) → 'proactive만'은 artifact 정정."""
+    if not AR_SRC.exists():
+        return '<p class="sub">verify_attack_refill.json 미생성 — <code>verify_claims.py attack_refill</code> 먼저 실행.</p>'
+    q = json.loads(AR_SRC.read_text())
+    A, mt, cfg = q["arms"], q["meta"], q["config"]
+    sig = {}
+    for c in q["contrasts_ashare"]:
+        arm = c["label"].replace("A점유 ", "").split(" vs none")[0].strip()
+        sig[arm] = c["sig"]
+    order = ["none", "neutral_filler", "dumb_cap", "social", "ost_beta", "ledger_elder", "qv_flat", "qv_rep"]
+    ccol = {"reactive 평판": "#b07b1f", "reactive 망각": "#b07b1f", "reactive 판관": "#b07b1f"}
+    rows = []
+    for nm in order:
+        a, cls = A[nm], mt[nm]["cls"]
+        col = ccol.get(cls, "#2e7d4f" if "proactive" in cls else "#9a958a")
+        mark = ("기준" if nm == "none"
+                else '<span class="w">▸ 작동</span>' if sig.get(nm) else '<span class="ns">✗ 실패</span>')
+        cb = f'<span class="cls" style="color:{col};border-color:{col}55;background:{col}14">{_esc(cls)}</span>'
+        rows.append(f'<tr><td class="arm">{nm}</td><td>{cb}</td><td class="num">{a["a_share_mean"]:.3f}</td>'
+                    f'<td class="num">{a["a_rep_mean"]:.2f}</td><td>{mark}</td></tr>')
+    nwork = sum(1 for nm in order if nm != "none" and sig.get(nm))
+    return (f'<p class="sub">앞 §1~3(고정 풀)에선 "희소+공격엔 <b>proactive 캡만 작동, reactive 평판/판관은 무력</b>"이라 했다. '
+            f'그러나 고정 풀은 라운드 0에 소진돼 <b>다회가 죽고</b> — 평판·이력이 쌓일 틈이 없어 reactive가 *못 움직였을 뿐*일 수 있다. '
+            f'그래서 같은 8조건을 <b>재충전 풀</b>(다회 실질화)·비대칭(A=사재기)에서 재측정했다(N={cfg["seeds"]} · workload={cfg["workload"]}). '
+            f'핵심 = 욕심쟁이 A의 점유(낮출수록 그 거버넌스가 A를 잘 막음).</p>'
+            '<table><thead><tr><th>조건</th><th>계열</th><th>A 점유 ↓</th><th>A 평판</th><th>판정(vs none)</th></tr></thead><tbody>'
+            + "".join(rows) + '</tbody></table>'
+            '<h3 style="font-family:\'Crimson Pro\',serif;font-size:16px;margin:22px 0 4px">라운드별 — 누가 욕심쟁이 A를 어떻게 누르나</h3>'
+            + qv_round_chart(A, [("none", "#9a958a", "무규제"), ("qv_flat", "#c08a2a", "QV·무가중(실패)"),
+                                 ("social", "#2f5d9e", "평판 social"), ("ledger_elder", "#b23b3b", "LLM 판관 elder"),
+                                 ("qv_rep", "#2e7d4f", "QV·평판가중")])
+            + '<p class="cap">무규제·qv_flat은 A가 끝까지 독식(라운드6에 A 완료·퇴장→0). 평판·판관은 라운드 2부터 A를 끌어내린다 — '
+            '특히 <b>LLM 판관(빨강)은 A를 거의 0으로 짓누른다</b>.</p>'
+            f'<div class="easy"><b>💡 정정: "proactive만 작동"은 고정 풀(fixed-pool) artifact였다.</b> 다회(재충전)에선 '
+            f'<b>reactive 평판·망각·판관이 모두 작동</b>한다 — 7개 개입 중 {nwork}개가 A를 유의하게 억제(p_holm=.0007). 고정 풀서 *최악(역효과)*이던 '
+            f'<code>ledger_elder</code>(LLM 판관)가 재충전선 <b>최고</b>(A 점유 {A["ledger_elder"]["a_share_mean"]:.2f}, A 평판 {A["ledger_elder"]["a_rep_mean"]:.2f}). '
+            f'유일한 실패는 평판/이력을 안 쓰는 <code>qv_flat</code>·<code>neutral_filler</code>. → 진짜 구분은 '
+            f'<b>"proactive vs reactive"가 아니라 "평판/이력 또는 per-round 캡을 쓰는가"</b>이고, <b>reactive 거버넌스 평가엔 다회 동역학이 필수</b>다.</div>')
 
 
 def build():
@@ -291,7 +333,9 @@ ul{{font-size:14.5px}}li{{margin:6px 0}}
 {wl(R['scarce_hoard'],'qv_rep'):.2f} 보존. 희소는 거의 제로섬이라 *재분배는 되지만 후생을 만들어내진 못한다* —
 QV가 그나마 덜 나쁜 유일한 선택.</div>
 
-<h2>4. 심화 — 재충전 풀에서 '평판 가중 QV'는 작동하는가</h2>
+<h2>4. 심화 — 다회(재충전 풀)에서 거버넌스 재검정: 'proactive만 작동'은 artifact였다</h2>
+{attack_refill_section()}
+<h3 style="font-family:'Crimson Pro',serif;font-size:17px;margin:34px 0 6px;color:#444">4.1 그 중 QV — 평판 가중(qv_rep) vs 무가중(qv_flat)</h3>
 {qv_refill_section()}
 
 <h2>5. 방법론과 정직한 해석</h2>
