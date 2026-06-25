@@ -886,12 +886,65 @@ async def run_qv_refill(backend, seeds, agents, workload, rounds, model, temp):
                           for lab, p, padj, sig in adjusted]}
 
 
+async def run_attack_refill(backend, seeds, agents, workload, rounds, model, temp):
+    """재충전 풀에서 *전체* 거버넌스를 재검정 — 사용자 지적: 고정 풀 round-0 붕괴는 QV뿐 아니라
+    평판·이력 의존 메커니즘 모두(social·ost_beta·ledger_elder)에 적용 → attack의 'proactive만
+    작동, reactive 무력' 결론이 artifact일 수 있다. 여기선 재충전 풀(다회 실질화)+비대칭(A=사재기)
+    에서 8조건을 재측정해 *reactive(평판/판관)도 다회에선 작동하는가*를 본다. 핵심 지표 = 욕심쟁이
+    A의 전달 점유(a_share): 낮을수록 그 거버넌스가 A를 잘 throttle. 라운드별 동역학도 함께."""
+    R, B, cap = 80, 50000.0, 160
+    workload = 400                                  # 높은 workload로 A가 일찍 완료·퇴장 못하게(다회 유지)
+    n = len(agents)
+    pmap = {agents[0]: HOARD_PERSONA}               # A = 사재기
+    for a in agents[1:]:
+        pmap[a] = ""                                # B·C·D = 공정
+    print(f"\n=== 재충전 전체 재검정 ({model}, N={seeds}, {n}ag, R/round={R}, cap={cap}, "
+          f"B={B:.0f}, 비대칭 A=사재기, workload={workload}) ===")
+    arm_specs = [
+        ("none",           "—",            _intercept_none,                        []),
+        ("neutral_filler", "입력(대조)",     _intercept_none,                        ["neutral_filler"]),
+        ("dumb_cap",       "proactive 캡",  _intercept_dumbcap,                     []),
+        ("social",         "reactive 평판",  _intercept_social,                      []),
+        ("ost_beta",       "reactive 망각",  _intercept_beta(0.7),                   []),
+        ("ledger_elder",   "reactive 판관",  _intercept_elder(0.5, backend=backend), []),
+        ("qv_flat",        "proactive QV",  _intercept_qv(False, B),                []),
+        ("qv_rep",         "proactive QV+rep", _intercept_qv(True, B),              []),
+    ]
+    arms, meta = {}, {}
+    for name, cls, ib, sh in arm_specs:
+        a = await _seeded(name, ib, sh, agents, R, workload, rounds, backend, seeds,
+                          persona_map=pmap, pool_per_round=R, pool_cap=cap)
+        a["comp_boot"] = bootstrap_ci(a["comp_raw"]); a["top_boot"] = bootstrap_ci(a["top_raw"])
+        a["ashare_boot"] = bootstrap_ci(a["a_share_raw"])
+        arms[name] = a; meta[name] = {"cls": cls}
+        print(f"  [{cls:<16}] {name:<16} top {a['top_mean']:.3f}  welfare {a['comp_mean']:.2f}  "
+              f"A점유 {a['a_share_mean']:.3f}  A평판 {a['a_rep_mean']:.2f}")
+
+    C = arms
+    gov = [nm for nm, *_ in arm_specs if nm != "none"]
+    none_as = C["none"]["a_share_raw"]
+    adj = holm([(f"A점유 {g} vs none", permutation_p(C[g]["a_share_raw"], none_as)) for g in gov])
+    print("\n--- A점유(욕심쟁이) 각 개입 vs none — 낮추면 작동 (순열검정+Holm) ---")
+    for lab, p, padj, sig in adj:
+        print(f"  [{'SIG' if sig else ' ns'}] {lab:<40} p={p:.4f}  p_holm={padj:.4f}")
+
+    return {"experiment": "attack_refill",
+            "config": {"model": model, "temp": temp, "agents": n, "workload": workload,
+                       "rounds": rounds, "seeds": seeds, "pool_per_round": R, "pool_cap": cap,
+                       "budget_B": B, "asymmetric": "A=hoard, B/C/D=fair"},
+            "order": [nm for nm, *_ in arm_specs],
+            "meta": meta,
+            "arms": {k: {kk: vv for kk, vv in v.items()} for k, v in arms.items()},
+            "contrasts_ashare": [{"label": lab, "p": p, "p_holm": padj, "sig": sig}
+                                 for lab, p, padj, sig in adj]}
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment",
                     choices=["v1", "v4", "v5", "v6", "phase_a", "welfare_rescue",
                              "phase_d", "phase_d_placebo", "caste_lambda", "elder", "qv",
-                             "unified", "litmus", "attack", "qv_refill"])
+                             "unified", "litmus", "attack", "qv_refill", "attack_refill"])
     ap.add_argument("--model", default="z-ai/glm-4.7-flash")  # cheapest paid GLM; reasoning off by default
     ap.add_argument("--seeds", type=int, default=20)
     ap.add_argument("--agents", type=int, default=3)
@@ -938,6 +991,8 @@ async def main():
         res = await run_attack(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
     elif args.experiment == "qv_refill":
         res = await run_qv_refill(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
+    elif args.experiment == "attack_refill":
+        res = await run_attack_refill(backend, args.seeds, agents, workload, args.rounds, args.model, args.temp)
     else:
         res = await run_v1(backend, args.seeds, agents, pool, workload, args.rounds)
 
